@@ -181,3 +181,6 @@ pyrightconfig.json
 # Earthdata cookies
 .urs_cookies
 MERRA2_100.tavgM_2d_slv_Nx.*
+
+wget-log
+wget-log.*
