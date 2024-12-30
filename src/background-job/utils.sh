@@ -8,7 +8,7 @@ download_file() {
     wget --load-cookies ./.urs_cookies \
         --keep-session-cookies --user="${EARTHDATA_USERNAME}" \
         --content-disposition --content-disposition -r -c -nH -nd -np -A ".nc4" \
-        -P "${TARGET_DIR}" "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp"
+        -P "${TARGET_DIR}" "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp" > /dev/null 2>&1
 
     if [ $? -ne 0 ]; then
         echo "Download failed. Exiting."
