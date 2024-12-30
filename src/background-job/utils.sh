@@ -11,7 +11,7 @@ download_file() {
         -P "${TARGET_DIR}" "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp" > /dev/null 2>&1
 
     if [ $? -ne 0 ]; then
-        echo "Download failed. Exiting."
+        echo "Download failed: ${BASE_URL}/${GES_FILE}. Exiting."
         exit 1
     fi
 
