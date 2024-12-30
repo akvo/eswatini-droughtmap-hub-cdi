@@ -120,12 +120,22 @@ class LandSurfaceTemp:
         """
         try:
             raw_files = self.__fileHandler.get_raw_file_names('lst_hdf_regex')
+            base_path = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
             for f in raw_files:
                 if f.find("_h5") < 0:
                     raw_file_path = "{}/{}".format(self.__raw_data_dir, f)
                     file_name = raw_file_path.split('.hdf')[0]
                     h5_path = file_name + '_h5.hdf'
-                    subprocess.run('./libs/h4toh5convert {} {}'.format(raw_file_path, h5_path), shell=True, check=True)
+                    subprocess.run(
+                        base_path + '/libs/h4toh5convert {} {}'.format(
+                            raw_file_path,
+                            h5_path
+                        ),
+                        shell=True,
+                        check=True
+                    )
                     os.remove(raw_file_path)
 
         except IOError:

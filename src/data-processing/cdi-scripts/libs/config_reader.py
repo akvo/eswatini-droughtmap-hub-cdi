@@ -1,4 +1,5 @@
 import json
+import os
 
 
 class ConfigParser:
@@ -7,16 +8,21 @@ class ConfigParser:
     """
     def __init__(self):
         self.config = {}
+        # get the base path of the project #
+        base_path = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))
+        )
+
         # read the project config settings from the JSON #
-        with open('./cdi_project_settings.conf', 'r') as fh:
+        with open(base_path + '/cdi_project_settings.conf', 'r') as fh:
             self.config = json.loads(fh.read())
         # read the directory settings from the JSON #
-        with open('./cdi_directory_settings.conf', 'r') as fh:
+        with open(base_path + '/cdi_directory_settings.conf', 'r') as fh:
             file_config = json.loads(fh.read())
             for item in file_config.keys():
                 self.config[item] = file_config[item]
         # read the file patterns settings from the JSON #
-        with open('./cdi_pattern_settings.conf', 'r') as fh:
+        with open(base_path + '/cdi_pattern_settings.conf', 'r') as fh:
             file_config = json.loads(fh.read())
             for item in file_config.keys():
                 self.config[item] = file_config[item]
