@@ -8,7 +8,7 @@ download_file() {
     wget --load-cookies ./.urs_cookies \
         --keep-session-cookies --user="${EARTHDATA_USERNAME}" \
         --content-disposition --content-disposition -r -c -nH -nd -np -A ".nc4" \
-        -P "${TARGET_DIR}" "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp" > /dev/null 2>&1
+        -P "${TARGET_DIR}" "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp" >/dev/null 2>&1
 
     if [ $? -ne 0 ]; then
         echo "Download failed: ${BASE_URL}/${GES_FILE}. Exiting."
@@ -29,13 +29,17 @@ remove_tmp_files() {
 
 get_num_files_in_dir() {
     local dir=$1
-    local pattern=$2
-    find "${dir}" -name "*${pattern}*" | wc -l
+    find "${dir}" \( -name "FLDAS*.nc" -o -name "*.hdf" \) | wc -l
 }
 
 get_num_files_in_log() {
     local log_file=$1
-    wc -l < "${log_file}"
+    wc -l <"${log_file}"
+}
+
+# Function to validate if a string is a valid URL
+is_valid_url() {
+    [[ $1 =~ ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]
 }
 
 download_missing_files() {
@@ -45,28 +49,34 @@ download_missing_files() {
     local pattern=$4
 
     missing_files=()
-    for f in $(cat "${log_file}"); do
+    # Collect missing files
+    while IFS= read -r f; do
         file_name=$(basename "$f")
         if [ ! -f "${dir}/${file_name}" ]; then
             missing_files+=("$f")
         fi
-    done
+    done <"${log_file}"
 
-    for ((i=0; i<${#missing_files[@]}; i+=10)); do
-    {
-        for ((j=i; j<i+10 && j<${#missing_files[@]}; j++)); do
-            file_name=$(basename "${missing_files[j]}")
-            prefix_url=$(dirname "${missing_files[j]}")
-            if [ -z "${prefix_url}" ] || [ "${prefix_url}" = "." ]; then
-                prefix_url="${base_url}"
-            fi
-            download_file "${dir}" "${prefix_url}" "${file_name}"
+    # Process files in batches of 10 with 30 seconds delay between batches
+    for ((i = 0; i < ${#missing_files[@]}; i += 10)); do
+        echo "START: Batch $((i / 10 + 1))"
+        for ((j = i; j < i + 10 && j < ${#missing_files[@]}; j++)); do
+            (
+                file_name=$(basename "${missing_files[j]}")
+                prefix_url=$(dirname "${missing_files[j]}")
+
+                # Use base_url if prefix_url is not a valid URL
+                if ! is_valid_url "${prefix_url}"; then
+                    prefix_url="${base_url}"
+                fi
+                echo "Downloading: ${file_name} from ${prefix_url}"
+                download_file "${dir}" "${prefix_url}" "${file_name}"
+            ) &
         done
-        wait
-        sleep 300
-    } &
+        wait # Wait for all background jobs in the current batch to finish
+        echo "Batch $((i / 10 + 1)) complete. Waiting for 30 seconds..."
+        sleep 30
     done
-    wait
 }
 
 check_and_create_download_log() {
@@ -78,29 +88,44 @@ check_and_create_download_log() {
     remove_tmp_files "../../input_data/${NAME}"
 
     if [ ! -f "../../logs/${LOG_NAME}" ]; then
-        URL_DIRS=$(curl -S "${BASE_URL}" \
-            | grep "\[DIR\]" \
-            | grep -v "doc" \
-            | grep -oP '(?<=href=")[^"]*')
+        URL_DIRS=$(curl -S "${BASE_URL}" |
+            grep "\[DIR\]" |
+            grep -v "doc" |
+            grep -oP '(?<=href=")[^"]*')
+
+        # Create a temporary file to keep track of already seen URLs
+        seen_urls_file="/tmp/seen_${NAME}.txt"
+
+        # Clear the file at the beginning of the script
+        >"${seen_urls_file}"
 
         for URLS in ${URL_DIRS}; do
             GES_URL="${URL}${URLS}"
-            curl -s "${BASE_URL}${GES_URL}" \
-                | grep "${GES_PATTERN}" \
-                | pup \
-                | grep -v "href" \
-                | grep "${GES_PATTERN}" \
-                | grep -v "\.xml" \
-                | sed "s/\ //g" \
-                | sed "s|^|${BASE_URL}${GES_URL}|"
-        done > "../../logs/${LOG_NAME}.tmp"
+
+            # Check if this URL has already been logged
+            if ! grep -q "${BASE_URL}${GES_URL}" "${seen_urls_file}"; then
+                # Log the URL if it's new
+                curl -s "${BASE_URL}${GES_URL}" |
+                    grep "${GES_PATTERN}" |
+                    pup |
+                    grep -v "href" |
+                    grep "${GES_PATTERN}" |
+                    grep -v "\.xml" |
+                    sed "s/\ //g" |
+                    sed "s|^|${BASE_URL}${GES_URL}|" \
+                        >>"../../logs/${LOG_NAME}.tmp"
+
+                # Mark the URL as seen by appending it to the seen URLs file
+                echo "${BASE_URL}${GES_URL}" >>"${seen_urls_file}"
+            fi
+        done
         mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
         sed -i '/xml/d' "../../logs/${LOG_NAME}"
     fi
 
     if [ -f "../../logs/${LOG_NAME}" ]; then
         num_files_in_log=$(get_num_files_in_log "../../logs/${LOG_NAME}")
-        num_files_in_dir=$(get_num_files_in_dir "../../input_data/${NAME}" "${GES_PATTERN}")
+        num_files_in_dir=$(get_num_files_in_dir "../../input_data/${NAME}")
 
         if [ "$num_files_in_dir" -lt "$num_files_in_log" ]; then
             download_missing_files "../../input_data/${NAME}" "../../logs/${LOG_NAME}" "${BASE_URL}" "${GES_PATTERN}"
