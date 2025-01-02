@@ -79,6 +79,28 @@ download_missing_files() {
     done
 }
 
+log_new_urls() {
+    local BASE_URL=$1
+    local GES_URL=$2
+    local GES_PATTERN=$3
+    local LOG_FILE=$4
+    local seen_urls_file=$5
+
+    if ! grep -q "${BASE_URL}${GES_URL}" "${seen_urls_file}"; then
+        curl -s "${BASE_URL}${GES_URL}" |
+            grep "${GES_PATTERN}" |
+            pup |
+            grep -v "href" |
+            grep "${GES_PATTERN}" |
+            grep -v "\.xml" |
+            sed "s/\ //g" |
+            sed "s|^|${BASE_URL}${GES_URL}|" \
+                >>"${LOG_FILE}"
+
+        echo "${BASE_URL}${GES_URL}" >>"${seen_urls_file}"
+    fi
+}
+
 check_and_create_download_log() {
     local BASE_URL=$1
     local GES_PATTERN=$2
@@ -87,43 +109,29 @@ check_and_create_download_log() {
 
     remove_tmp_files "../../input_data/${NAME}"
 
+    URL_DIRS=$(curl -s "${BASE_URL}" |
+        grep "\[DIR\]" |
+        grep -v "doc" |
+        grep -oP '(?<=href=")[^"]*')
+
+    seen_urls_file="/tmp/seen_${NAME}.txt"
+
     if [ ! -f "../../logs/${LOG_NAME}" ]; then
-        URL_DIRS=$(curl -S "${BASE_URL}" |
-            grep "\[DIR\]" |
-            grep -v "doc" |
-            grep -oP '(?<=href=")[^"]*')
-
-        # Create a temporary file to keep track of already seen URLs
-        seen_urls_file="/tmp/seen_${NAME}.txt"
-
         # Clear the file at the beginning of the script
         >"${seen_urls_file}"
 
         for URLS in ${URL_DIRS}; do
             GES_URL="${URL}${URLS}"
-
-            # Check if this URL has already been logged
-            if ! grep -q "${BASE_URL}${GES_URL}" "${seen_urls_file}"; then
-                # Log the URL if it's new
-                curl -s "${BASE_URL}${GES_URL}" |
-                    grep "${GES_PATTERN}" |
-                    pup |
-                    grep -v "href" |
-                    grep "${GES_PATTERN}" |
-                    grep -v "\.xml" |
-                    sed "s/\ //g" |
-                    sed "s|^|${BASE_URL}${GES_URL}|" \
-                        >>"../../logs/${LOG_NAME}.tmp"
-
-                # Mark the URL as seen by appending it to the seen URLs file
-                echo "${BASE_URL}${GES_URL}" >>"${seen_urls_file}"
-            fi
+            log_new_urls "${BASE_URL}" "${GES_URL}" "${GES_PATTERN}" "../../logs/${LOG_NAME}.tmp" "${seen_urls_file}"
         done
         mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
         sed -i '/xml/d' "../../logs/${LOG_NAME}"
     fi
 
     if [ -f "../../logs/${LOG_NAME}" ]; then
+        LAST_URL_DIR=$(echo "$URL_DIRS" | tail -n 1)
+        log_new_urls "${BASE_URL}" "${LAST_URL_DIR}" "${GES_PATTERN}" "../../logs/${LOG_NAME}" "${seen_urls_file}"
+
         num_files_in_log=$(get_num_files_in_log "../../logs/${LOG_NAME}")
         num_files_in_dir=$(get_num_files_in_dir "../../input_data/${NAME}")
 
