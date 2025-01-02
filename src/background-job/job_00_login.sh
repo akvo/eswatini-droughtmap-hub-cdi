@@ -2,11 +2,11 @@
 
 login_and_download_cookies() {
     # Remove .urs_cookies and MERRA2_100.tavgM_2d_slv_Nx.198101.nc4 files if they exist and are older than 1 day
-    find . -name ".urs_cookies" -o -name "MERRA2_100.tavgM_2d_slv_Nx.198101.nc4" -mtime +1 -exec rm {} \;
+    find . -name ".urs_cookies" -mtime +1 -exec rm {} \;
 
-    # Check if .urs_cookies and MERRA2_100.tavgM_2d_slv_Nx.198101.nc4 exist and are created today
-    if [ -f ./.urs_cookies ] && [ -f MERRA2_100.tavgM_2d_slv_Nx.198101.nc4 ] && [ $(find ./.urs_cookies -mtime -1) ] && [ $(find MERRA2_100.tavgM_2d_slv_Nx.198101.nc4 -mtime -1) ]; then
-        echo "Files are up to date. Skipping login and download."
+    # Check if .urs_cookies exists and is created today
+    if [ -f ./.urs_cookies ] && [ $(find ./.urs_cookies -mtime -1) ]; then
+        echo ".urs_cookies is up to date. Skipping login."
         return 0
     fi
 
