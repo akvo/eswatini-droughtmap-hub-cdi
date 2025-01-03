@@ -1,13 +1,13 @@
 #!/bin/bash
 
 login_and_download_cookies() {
-    # Remove .urs_cookies and MERRA2_100.tavgM_2d_slv_Nx.198101.nc4 files if they exist and are older than 1 day
-    find . -name ".urs_cookies" -mtime +1 -exec rm {} \;
-
     # Check if .urs_cookies exists and is created today
-    if [ -f ./.urs_cookies ] && [ $(find ./.urs_cookies -mtime -1) ]; then
+    if [ -f ./.urs_cookies ] && [ $(find . -name ".urs_cookies" -newermt "$(date +%Y-%m-%d)") ]; then
         echo ".urs_cookies is up to date. Skipping login."
         return 0
+    else
+        rm -f ./.urs_cookies
+        rm -f ./MERRA2_100.tavgM_2d_slv_Nx.198101.nc4
     fi
 
     wget --load-cookies ./.urs_cookies \
