@@ -115,6 +115,9 @@ check_and_create_download_log() {
         grep -oP '(?<=href=")[^"]*')
 
     seen_urls_file="/tmp/seen_${NAME}.txt"
+    if [ ! -f "${seen_urls_file}" ]; then
+        touch "${seen_urls_file}"
+    fi
 
     if [ ! -f "../../logs/${LOG_NAME}" ]; then
         # Clear the file at the beginning of the script
