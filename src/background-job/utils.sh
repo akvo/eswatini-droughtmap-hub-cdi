@@ -134,6 +134,9 @@ check_and_create_download_log() {
     if [ -f "../../logs/${LOG_NAME}" ]; then
         LAST_URL_DIR=$(echo "$URL_DIRS" | tail -n 1)
         log_new_urls "${BASE_URL}" "${LAST_URL_DIR}" "${GES_PATTERN}" "../../logs/${LOG_NAME}" "${seen_urls_file}"
+        # Modify log file if there any duplicated lines
+        awk '!seen[$0]++' "../../logs/${LOG_NAME}" >"../../logs/${LOG_NAME}.tmp"
+        mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
 
         num_files_in_log=$(get_num_files_in_log "../../logs/${LOG_NAME}")
         num_files_in_dir=$(get_num_files_in_dir "../../input_data/${NAME}")
