@@ -14,6 +14,15 @@ source ./job_00_login.sh
 source ./job_01_check-dataset.sh
 source ./job_02_extract-n-rename-chirps.sh
 
+# Exit if wget, pup, gunzip, and curl aren't available
+for cmd in wget pup gunzip curl; do
+    if ! command -v $cmd &> /dev/null; then
+        echo "$cmd could not be found, please install it to proceed."
+        exit 1
+    fi
+done
+echo "All required commands are available."
+
 login_and_download_cookies
 
 check_and_download_chirps_dataset
