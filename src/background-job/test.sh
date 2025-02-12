@@ -24,6 +24,12 @@ cd "$(dirname "$0")"
 
 dataset_is_completed=False
 
+notify_rundeck() {
+    local message="$1"
+    # Replace with the actual Rundeck notification command (e.g., API call, email, webhook, etc.)
+    echo "Rundeck Notification: $message"
+}
+
 chirps_dataset_is_updated() {
     true
 }
@@ -46,9 +52,13 @@ SM_dataset_is_updated() {
 }
 
 run_cdi_scripts() {
-    source ~/.myenv/bin/activate
-    python -u ../data-processing/cdi-scripts/STEP_0000_execute_all_steps.py
-    deactivate
+    # source ~/.myenv/bin/activate
+    python3 -u ../data-processing/cdi-scripts/STEP_0000_execute_all_steps.py
+    if [[ $? -ne 0 ]]; then
+        notify_rundeck "CDI script execution failed!"
+        exit 1
+    fi
+    # deactivate
 }
 
 run_aggregation_script() {
