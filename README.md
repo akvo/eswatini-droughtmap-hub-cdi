@@ -1,1 +1,0 @@
-# eswatini-droughtmap-hub-cdi
