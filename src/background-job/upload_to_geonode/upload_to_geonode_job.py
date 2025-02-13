@@ -46,10 +46,6 @@ def get_categories(api_url, file_name="geonode_category.json"):
         return json.load(json_file)
 
 
-# List of cateogries ids in Geonode
-categories = get_categories(f"{geonode_url}api/categories/")
-
-
 def write_failure_message(response):
     print("Request failed.")
     print("Status Code:", response.status_code)
@@ -130,7 +126,11 @@ def update_dataset_metadata(dataset_id, metadata):
         write_failure_message(response)
 
 
-def tracking_upload_progress(execution_id: int, taxonomy: str):
+def tracking_upload_progress(
+    execution_id: int,
+    taxonomy: str,
+    categories: object
+):
     if not execution_id:
         return
     api_url = f"{geonode_url}api/v2/executionrequest/{execution_id}"
@@ -159,6 +159,7 @@ def tracking_upload_progress(execution_id: int, taxonomy: str):
 
 
 def main():
+    categories = get_categories(f"{geonode_url}api/categories/")
     dataset_files = get_recent_files()
     for dataset_file in dataset_files:
         print(f"Uploading {dataset_file} to GeoNode...")
@@ -166,7 +167,8 @@ def main():
         taxonomy = dataset_file.split('/')[-2]
         tracking_upload_progress(
             execution_id,
-            taxonomy.lower()
+            taxonomy.lower(),
+            categories
         )
 
 
