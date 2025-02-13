@@ -71,6 +71,10 @@ download_missing_files() {
                 if ! is_valid_url "${prefix_url}"; then
                     prefix_url="${base_url}"
                 fi
+                if [[ -z "${file_name}" ]]; then
+                    echo "Error: file_name is empty. Skipping download."
+                    return
+                fi
                 echo "Downloading: ${file_name} from ${prefix_url}"
                 download_file "${dir}" "${prefix_url}" "${file_name}"
             ) &
