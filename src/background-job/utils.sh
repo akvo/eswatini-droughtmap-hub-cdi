@@ -15,7 +15,9 @@ download_file() {
         exit 1
     fi
 
-    mv "${TARGET_DIR}/${GES_FILE}.tmp" "${TARGET_DIR}/${GES_FILE}"
+    if [ -f "${TARGET_DIR}/${GES_FILE}.tmp" ]; then
+        mv "${TARGET_DIR}/${GES_FILE}.tmp" "${TARGET_DIR}/${GES_FILE}"
+    fi
 }
 
 remove_tmp_files() {
