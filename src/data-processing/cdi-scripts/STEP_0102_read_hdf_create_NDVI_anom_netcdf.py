@@ -115,9 +115,7 @@ class NormalizedDifferenceVegetationIndex:
         """
         try:
             raw_files = self.__fileHandler.get_raw_file_names('ndvi_hdf_regex')
-            base_path = os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__))
-            )
+            base_path = os.path.dirname(os.path.abspath(__file__))
             for f in raw_files:
                 if f.find("_h5") < 0:
                     raw_file_path = "{}/{}".format(self.__raw_data_dir, f)
