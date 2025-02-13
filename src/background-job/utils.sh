@@ -31,7 +31,7 @@ remove_tmp_files() {
 
 get_num_files_in_dir() {
     local dir=$1
-    find "${dir}" \( -name "FLDAS*.nc" -o -name "*.hdf" \) | wc -l
+    find "${dir}" \( -name "FLDAS*.nc" -o -name "*.hdf" -o -name "*.tif*" \) | wc -l
 }
 
 get_num_files_in_log() {
