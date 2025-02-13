@@ -14,6 +14,7 @@ source ./job_00_login.sh
 source ./job_01_check-dataset.sh
 source ./job_02_extract-n-rename-chirps.sh
 source ./job_03_run_cdi.sh
+source ./job_04_upload_to_geonode.sh
 
 # Exit if wget, pup, gunzip, and curl aren't available
 for cmd in wget pup gunzip curl; do
@@ -34,3 +35,4 @@ check_and_download_SM_dataset
 extract_and_rename_chirps
 
 run_cdi_scripts
+upload_to_geonode
