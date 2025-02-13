@@ -184,3 +184,6 @@ MERRA2_100.tavgM_2d_slv_Nx.*
 
 wget-log
 wget-log.*
+
+# Job config
+geonode_category.json
