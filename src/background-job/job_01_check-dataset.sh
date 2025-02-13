@@ -4,7 +4,7 @@ check_and_download_chirps_dataset() {
     remove_tmp_files "../../input_data/CHIRPS"
 
     if ls ../../input_data/CHIRPS/*.tif* 1> /dev/null 2>&1; then
-        num_files_in_dir=$(get_num_files_in_dir "../../input_data/CHIRPS" ".tif*")
+        num_files_in_dir=$(get_num_files_in_dir "../../input_data/CHIRPS")
         num_files_in_log=$(get_num_files_in_log "../../logs/all-CHIRPS.log")
 
         if [ "$num_files_in_dir" -lt "$num_files_in_log" ]; then
