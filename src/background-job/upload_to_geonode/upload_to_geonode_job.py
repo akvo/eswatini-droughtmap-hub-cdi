@@ -141,7 +141,7 @@ def tracking_upload_progress(
             error_message = json_response["output_params"]["errors"]
             raise RuntimeError(f"API request failed: {error_message}")
         if not json_response["finished"]:
-            tracking_upload_progress(execution_id, taxonomy)
+            tracking_upload_progress(execution_id, taxonomy, categories)
         if json_response["status"] == "finished":
             dataset = json_response.get("output_params").get("resources")[0]
             if dataset.get("id"):
