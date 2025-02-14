@@ -99,6 +99,7 @@ def main():
             rankings.rank_parameter(index)
     except IOError as ioe:
         print(ioe)
+        raise
     except Exception as ex:
         print(ex)
         raise

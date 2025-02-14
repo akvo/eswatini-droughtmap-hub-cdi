@@ -179,6 +179,7 @@ def main(args):
                     cdi_date = tif_exporter.cdi_date
     except IOError as ioe:
         print(ioe)
+        raise
     except Exception as ex:
         print(ex)
         raise

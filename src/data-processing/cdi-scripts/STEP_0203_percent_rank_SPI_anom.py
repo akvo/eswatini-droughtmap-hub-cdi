@@ -137,6 +137,7 @@ def main():
         rankings.rank_spi_parameters()
     except IOError as ioe:
         print(ioe)
+        raise
     except Exception as ex:
         print(ex)
         raise

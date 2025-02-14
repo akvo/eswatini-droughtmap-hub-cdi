@@ -306,6 +306,7 @@ def main(args):
         lst.update_lst_anomaly_file()
     except IOError as ioe:
         print(ioe)
+        raise
     except Exception as ex:
         print(ex)
         raise

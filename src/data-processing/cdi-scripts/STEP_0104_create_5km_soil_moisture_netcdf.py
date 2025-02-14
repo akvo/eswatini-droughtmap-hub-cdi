@@ -206,6 +206,7 @@ def main(args):
             soil_moisture.create_soil_moisture_file(f)
     except IOError as ioe:
         print(ioe)
+        raise
     except Exception as ex:
         print(ex)
         raise

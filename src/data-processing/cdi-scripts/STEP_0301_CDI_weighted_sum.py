@@ -209,6 +209,7 @@ def main():
         print(ve)
     except IOError as ioe:
         print(ioe)
+        raise
     except Exception as ex:
         print(ex)
         raise
