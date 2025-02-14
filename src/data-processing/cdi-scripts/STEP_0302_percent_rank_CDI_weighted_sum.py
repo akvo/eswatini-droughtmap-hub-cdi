@@ -101,6 +101,7 @@ def main():
         print(ioe)
     except Exception as ex:
         print(ex)
+        raise
     finally:
         script_end = datetime.now()
         print("Script execution: {}".format(script_end - script_start))
