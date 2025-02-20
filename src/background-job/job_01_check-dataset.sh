@@ -3,6 +3,18 @@
 check_and_download_chirps_dataset() {
     remove_tmp_files "../../input_data/CHIRPS"
 
+    # Check if all-CHIRPS.log exists
+    if [ ! -f "../../logs/all-CHIRPS.log" ]; then
+        touch "../../logs/all-CHIRPS.log"
+    fi
+
+    curl -s "${DOWNLOAD_CHIRPS_BASE_URL}" \
+        | grep "${DOWNLOAD_CHIRPS_PATTERN}" \
+        | pup \
+        | grep -v "href" \
+        | grep "${DOWNLOAD_CHIRPS_PATTERN}" \
+        | sed "s/\ //g" > "../../logs/all-CHIRPS.log"
+
     if ls ../../input_data/CHIRPS/*.tif* 1> /dev/null 2>&1; then
         num_files_in_dir=$(get_num_files_in_dir "../../input_data/CHIRPS")
         num_files_in_log=$(get_num_files_in_log "../../logs/all-CHIRPS.log")
