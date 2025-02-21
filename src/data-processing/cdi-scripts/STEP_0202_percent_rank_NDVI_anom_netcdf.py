@@ -97,11 +97,9 @@ def main():
         print("Ranking NDVI anomaly data...")
         for index in range(0, 12):
             rankings.rank_parameter(index)
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
     finally:
         script_end = datetime.now()

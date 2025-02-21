@@ -135,11 +135,9 @@ def main():
         # loop thru the months and rank the SPI anomalies #
         print("Ranking SPI anomaly data...")
         rankings.rank_spi_parameters()
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
     finally:
         script_end = datetime.now()

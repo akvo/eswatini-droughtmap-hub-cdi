@@ -205,13 +205,11 @@ def main():
         cdi.get_common_dates()
         # compute the weighted sum #
         cdi.compute_sum()
-    except ValueError as ve:
-        print(ve)
-    except IOError as ioe:
-        print(ioe)
+    except ValueError:
         raise
-    except Exception as ex:
-        print(ex)
+    except IOError:
+        raise
+    except Exception:
         raise
     finally:
         script_end = datetime.now()

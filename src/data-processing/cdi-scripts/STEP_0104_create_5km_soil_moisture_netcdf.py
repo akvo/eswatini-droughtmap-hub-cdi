@@ -204,11 +204,9 @@ def main(args):
         # create any SubGrids required for processing #
         for f in files_to_process:
             soil_moisture.create_soil_moisture_file(f)
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
     finally:
         script_end = datetime.now()

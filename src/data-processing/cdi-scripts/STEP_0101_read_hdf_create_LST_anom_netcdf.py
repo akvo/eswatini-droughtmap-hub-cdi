@@ -304,11 +304,9 @@ def main(args):
 
         # create the LST anomaly file #
         lst.update_lst_anomaly_file()
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
     finally:
         script_end = datetime.now()

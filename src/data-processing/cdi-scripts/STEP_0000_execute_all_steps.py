@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import time
+import sys
 
-from netCDF4 import Dataset
+# from netCDF4 import Dataset
 from STEP_0101_read_hdf_create_LST_anom_netcdf import main as step_0101
 from STEP_0102_read_hdf_create_NDVI_anom_netcdf import main as step_0102
 from STEP_0103_read_chirps_create_precip_netcdf_and_spi_netcdf import main as step_0103
@@ -27,12 +28,18 @@ Packages:
 
 
 def log_time(step_name, func, *args):
-    start_time = time.time()
-    print(f"Executing {step_name}...")
-    func(*args)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(f"{step_name} completed in {elapsed_time:.2f} seconds.\n")
+    # log the time taken to execute the function
+    # if any error occured, exit the program with sys.exit(1)
+    try:
+        start_time = time.time()
+        print(f"Executing {step_name}...")
+        func(*args)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"{step_name} completed in {elapsed_time:.2f} seconds.\n")
+    except Exception as e:
+        print(f"Error in {step_name}: {e}")
+        sys.exit(1)
 
 
 def main(args):

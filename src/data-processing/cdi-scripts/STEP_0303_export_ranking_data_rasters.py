@@ -177,11 +177,9 @@ def main(args):
             with NetCDFtoTIFF(p, mode, cdi_date) as tif_exporter:
                 if cdi_date is None:
                     cdi_date = tif_exporter.cdi_date
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
     finally:
         script_end = datetime.now()

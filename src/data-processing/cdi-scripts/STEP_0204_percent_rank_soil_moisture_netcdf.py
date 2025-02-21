@@ -197,11 +197,9 @@ def main():
 
             # rank total column data #
             rankings.rank_parameter('TotalColumn_SM', index)
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
     finally:
         script_end = datetime.now()
