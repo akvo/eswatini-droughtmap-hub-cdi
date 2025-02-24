@@ -30,16 +30,17 @@ Packages:
 def log_time(step_name, func, *args):
     # log the time taken to execute the function
     # if any error occured, exit the program with sys.exit(1)
+    start_time = time.time()
     try:
-        start_time = time.time()
         print(f"Executing {step_name}...")
         func(*args)
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f"{step_name} completed in {elapsed_time:.2f} seconds.\n")
     except Exception as e:
         print(f"Error in {step_name}: {e}")
         sys.exit(1)
+    finally:
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"{step_name} completed in {elapsed_time:.2f} seconds.\n")
 
 
 def main(args):

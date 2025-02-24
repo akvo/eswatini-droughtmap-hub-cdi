@@ -279,7 +279,6 @@ def main(args):
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     mode = str(args.mode)
     try:
         # initialize a new LST class #
@@ -308,9 +307,6 @@ def main(args):
         raise
     except Exception:
         raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
 
 
 if __name__ == '__main__':

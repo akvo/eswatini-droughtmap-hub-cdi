@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 import numpy as np
 import numpy.ma as ma
 import re
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 
 
 class NormalizedDifferenceVegetationIndex:
@@ -267,7 +267,6 @@ def main(args):
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     mode = str(args.mode)
     try:
         # initialize a new NDVI class #
@@ -297,9 +296,6 @@ def main(args):
         raise
     except Exception:
         raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
 
 
 if __name__ == '__main__':

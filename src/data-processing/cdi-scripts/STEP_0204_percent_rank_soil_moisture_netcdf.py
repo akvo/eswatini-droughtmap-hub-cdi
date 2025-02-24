@@ -4,9 +4,9 @@ from libs.config_reader import ConfigParser
 from libs.file_operations import FileHandler
 from libs.statistics_operations import StatisticOperations
 import libs.netcdf_functions as netcdf
-import numpy as np
+# import numpy as np
 import re
-from datetime import datetime, date
+from datetime import date
 
 
 class SoilMoistureRanking:
@@ -179,7 +179,6 @@ def main():
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     try:
         # initialize a new soil moisture class #
         rankings = SoilMoistureRanking()
@@ -201,9 +200,6 @@ def main():
         raise
     except Exception:
         raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
 
 
 if __name__ == '__main__':

@@ -5,7 +5,6 @@ from libs.config_reader import ConfigParser
 import libs.netcdf_functions as netcdf
 import numpy as np
 import numpy.ma as ma
-from datetime import datetime
 
 
 class CompositeDroughtIndicator:
@@ -197,7 +196,6 @@ def main():
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     try:
         # initialize a new soil moisture class #
         cdi = CompositeDroughtIndicator()
@@ -211,9 +209,6 @@ def main():
         raise
     except Exception:
         raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
 
 
 if __name__ == '__main__':
