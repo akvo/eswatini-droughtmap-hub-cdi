@@ -3,8 +3,7 @@ import os
 from libs.config_reader import ConfigParser
 from libs.statistics_operations import StatisticOperations
 import libs.netcdf_functions as netcdf
-import numpy as np
-from datetime import datetime
+# import numpy as np
 
 
 class NormalizedDifferenceVegetationIndexRanking:
@@ -89,7 +88,6 @@ def main():
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     try:
         # initialize a new soil moisture class #
         rankings = NormalizedDifferenceVegetationIndexRanking()
@@ -97,15 +95,10 @@ def main():
         print("Ranking NDVI anomaly data...")
         for index in range(0, 12):
             rankings.rank_parameter(index)
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
 
 
 if __name__ == '__main__':

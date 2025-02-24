@@ -6,7 +6,7 @@ import libs.netcdf_functions as netcdf
 from argparse import ArgumentParser
 import rasterio
 from rasterio.transform import Affine
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 
 
 class NetCDFtoTIFF:
@@ -167,7 +167,6 @@ def main(args):
     This is the main entry point for the program
     """
     mode = str(args.mode)
-    script_start = datetime.now()
     try:
         # set the list of parameters to convert: cdi must be first #
         parameters = ["cdi", "lst", "ndvi", "spi", "sm"]
@@ -177,15 +176,10 @@ def main(args):
             with NetCDFtoTIFF(p, mode, cdi_date) as tif_exporter:
                 if cdi_date is None:
                     cdi_date = tif_exporter.cdi_date
-    except IOError as ioe:
-        print(ioe)
+    except IOError:
         raise
-    except Exception as ex:
-        print(ex)
+    except Exception:
         raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
 
 
 if __name__ == '__main__':
