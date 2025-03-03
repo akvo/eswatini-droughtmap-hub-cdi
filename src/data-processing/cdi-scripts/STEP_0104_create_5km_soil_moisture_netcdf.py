@@ -186,27 +186,22 @@ def main(args):
     This is the main entry point for the program
     """
     mode = str(args.mode)
-    try:
-        # initialize a new soil moisture class #
-        soil_moisture = SoilMoisture()
-        # determine the files to process #
-        files_to_process = []
-        if mode == 'all':
-            print("Processing all months.")
-            files_to_process = soil_moisture.get_fldas_files_to_process(True)
+    # initialize a new soil moisture class #
+    soil_moisture = SoilMoisture()
+    # determine the files to process #
+    files_to_process = []
+    if mode == 'all':
+        print("Processing all months.")
+        files_to_process = soil_moisture.get_fldas_files_to_process(True)
+    else:
+        files_to_process = soil_moisture.get_fldas_files_to_process()
+        if len(files_to_process) == 0:
+            print("All months have been processed for 5km Soil Moisture.")
         else:
-            files_to_process = soil_moisture.get_fldas_files_to_process()
-            if len(files_to_process) == 0:
-                print("All months have been processed for 5km Soil Moisture.")
-            else:
-                print("Processing needed months for 5km Soil Moisture.")
-        # create any SubGrids required for processing #
-        for f in files_to_process:
-            soil_moisture.create_soil_moisture_file(f)
-    except IOError:
-        raise
-    except Exception:
-        raise
+            print("Processing needed months for 5km Soil Moisture.")
+    # create any SubGrids required for processing #
+    for f in files_to_process:
+        soil_moisture.create_soil_moisture_file(f)
 
 
 if __name__ == '__main__':

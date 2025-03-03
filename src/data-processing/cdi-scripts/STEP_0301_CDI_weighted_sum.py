@@ -196,19 +196,12 @@ def main():
     """
     This is the main entry point for the program
     """
-    try:
-        # initialize a new soil moisture class #
-        cdi = CompositeDroughtIndicator()
-        # get the common dates between the sets #
-        cdi.get_common_dates()
-        # compute the weighted sum #
-        cdi.compute_sum()
-    except ValueError:
-        raise
-    except IOError:
-        raise
-    except Exception:
-        raise
+    # initialize a new soil moisture class #
+    cdi = CompositeDroughtIndicator()
+    # get the common dates between the sets #
+    cdi.get_common_dates()
+    # compute the weighted sum #
+    cdi.compute_sum()
 
 
 if __name__ == '__main__':

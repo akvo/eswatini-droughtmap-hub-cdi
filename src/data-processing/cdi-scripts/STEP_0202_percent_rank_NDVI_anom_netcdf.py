@@ -88,17 +88,12 @@ def main():
     """
     This is the main entry point for the program
     """
-    try:
-        # initialize a new soil moisture class #
-        rankings = NormalizedDifferenceVegetationIndexRanking()
-        # loop thru the months and rank the NDVI anomalies #
-        print("Ranking NDVI anomaly data...")
-        for index in range(0, 12):
-            rankings.rank_parameter(index)
-    except IOError:
-        raise
-    except Exception:
-        raise
+    # initialize a new soil moisture class #
+    rankings = NormalizedDifferenceVegetationIndexRanking()
+    # loop thru the months and rank the NDVI anomalies #
+    print("Ranking NDVI anomaly data...")
+    for index in range(0, 12):
+        rankings.rank_parameter(index)
 
 
 if __name__ == '__main__':

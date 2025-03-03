@@ -127,16 +127,11 @@ def main():
     """
     This is the main entry point for the program
     """
-    try:
-        # initialize a new soil moisture class #
-        rankings = StandardizedPrecipitationIndexRanking()
-        # loop thru the months and rank the SPI anomalies #
-        print("Ranking SPI anomaly data...")
-        rankings.rank_spi_parameters()
-    except IOError:
-        raise
-    except Exception:
-        raise
+    # initialize a new soil moisture class #
+    rankings = StandardizedPrecipitationIndexRanking()
+    # loop thru the months and rank the SPI anomalies #
+    print("Ranking SPI anomaly data...")
+    rankings.rank_spi_parameters()
 
 
 if __name__ == '__main__':

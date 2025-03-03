@@ -179,27 +179,22 @@ def main():
     """
     This is the main entry point for the program
     """
-    try:
-        # initialize a new soil moisture class #
-        rankings = SoilMoistureRanking()
-        # loop thru the months and rank the three soil moisture parameters #
-        for index, month in enumerate(rankings.get_month_order()):
-            print("Ranking data for month: {}".format(month))
-            # load data #
-            rankings.load_soil_moisture_data(month)
+    # initialize a new soil moisture class #
+    rankings = SoilMoistureRanking()
+    # loop thru the months and rank the three soil moisture parameters #
+    for index, month in enumerate(rankings.get_month_order()):
+        print("Ranking data for month: {}".format(month))
+        # load data #
+        rankings.load_soil_moisture_data(month)
 
-            # rank root zone data #
-            rankings.rank_parameter('RootZone_SM', index)
+        # rank root zone data #
+        rankings.rank_parameter('RootZone_SM', index)
 
-            # rank root zone2 data #
-            rankings.rank_parameter('RootZone2_SM', index)
+        # rank root zone2 data #
+        rankings.rank_parameter('RootZone2_SM', index)
 
-            # rank total column data #
-            rankings.rank_parameter('TotalColumn_SM', index)
-    except IOError:
-        raise
-    except Exception:
-        raise
+        # rank total column data #
+        rankings.rank_parameter('TotalColumn_SM', index)
 
 
 if __name__ == '__main__':

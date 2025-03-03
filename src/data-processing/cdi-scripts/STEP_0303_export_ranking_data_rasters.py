@@ -167,19 +167,14 @@ def main(args):
     This is the main entry point for the program
     """
     mode = str(args.mode)
-    try:
-        # set the list of parameters to convert: cdi must be first #
-        parameters = ["cdi", "lst", "ndvi", "spi", "sm"]
-        cdi_date = None
-        for p in parameters:
-            # initialize a new TIFF export class #
-            with NetCDFtoTIFF(p, mode, cdi_date) as tif_exporter:
-                if cdi_date is None:
-                    cdi_date = tif_exporter.cdi_date
-    except IOError:
-        raise
-    except Exception:
-        raise
+    # set the list of parameters to convert: cdi must be first #
+    parameters = ["cdi", "lst", "ndvi", "spi", "sm"]
+    cdi_date = None
+    for p in parameters:
+        # initialize a new TIFF export class #
+        with NetCDFtoTIFF(p, mode, cdi_date) as tif_exporter:
+            if cdi_date is None:
+                cdi_date = tif_exporter.cdi_date
 
 
 if __name__ == '__main__':

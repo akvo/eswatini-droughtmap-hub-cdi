@@ -88,17 +88,12 @@ def main():
     """
     This is the main entry point for the program
     """
-    try:
-        # initialize a new LST Ranking class #
-        rankings = LandSurfaceTempRanking()
-        # loop thru the months and rank the LST anomalies #
-        print("Ranking LST anomaly data...")
-        for index in range(0, 12):
-            rankings.rank_parameter(index)
-    except IOError:
-        raise
-    except Exception:
-        raise
+    # initialize a new LST Ranking class #
+    rankings = LandSurfaceTempRanking()
+    # loop thru the months and rank the LST anomalies #
+    print("Ranking LST anomaly data...")
+    for index in range(0, 12):
+        rankings.rank_parameter(index)
 
 
 if __name__ == '__main__':

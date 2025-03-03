@@ -280,33 +280,28 @@ def main(args):
     This is the main entry point for the program
     """
     mode = str(args.mode)
-    try:
-        # initialize a new LST class #
-        lst = LandSurfaceTemp()
+    # initialize a new LST class #
+    lst = LandSurfaceTemp()
 
-        lst.convert_h4_to_h5()
+    lst.convert_h4_to_h5()
 
-        # determine the files to process #
-        if mode == 'all':
-            print("Processing all months for LST.")
-            files_to_process = lst.get_files_to_process(True)
+    # determine the files to process #
+    if mode == 'all':
+        print("Processing all months for LST.")
+        files_to_process = lst.get_files_to_process(True)
+    else:
+        files_to_process = lst.get_files_to_process()
+        if len(files_to_process) == 0:
+            print("All months have been processed for LST.")
         else:
-            files_to_process = lst.get_files_to_process()
-            if len(files_to_process) == 0:
-                print("All months have been processed for LST.")
-            else:
-                print("Processing needed months for LST.")
+            print("Processing needed months for LST.")
 
-        # convert any unprocessed HDF files to NetCDF format #
-        for f in files_to_process:
-            lst.create_lst_netcdf_file(f)
+    # convert any unprocessed HDF files to NetCDF format #
+    for f in files_to_process:
+        lst.create_lst_netcdf_file(f)
 
-        # create the LST anomaly file #
-        lst.update_lst_anomaly_file()
-    except IOError:
-        raise
-    except Exception:
-        raise
+    # create the LST anomaly file #
+    lst.update_lst_anomaly_file()
 
 
 if __name__ == '__main__':
