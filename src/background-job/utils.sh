@@ -108,6 +108,7 @@ check_and_create_download_log() {
 
     remove_tmp_files "../../input_data/${NAME}"
 
+    echo "Downloading list of available ${NAME} data and saving to log"
     URL_DIRS=$(curl -s "${BASE_URL}" |
         grep "\[DIR\]" |
         grep -v "doc" |
@@ -158,6 +159,24 @@ check_and_create_download_log() {
             sed -i '/\/$/d' "../../logs/${LOG_NAME}"
         fi
 
+        echo "Checking if new data was expected for new month"
+
+        current_month=$(date +%Y.%m)
+        expected_month=$(date -d "2 months ago" +%Y.%m)
+        # if NAME is equal "SM" then change format expected_month to %Y%m
+        if [ "${NAME}" == "SM" ]; then
+            expected_month=$(date -d "2 months ago" +%Y%m)
+        fi
+
+        echo "Current month: ${current_month}. Expecting new data for: ${expected_month}"
+
+        if ! grep -q "${expected_month}" "../../logs/${LOG_NAME}"; then
+            echo "No data for ${expected_month} found for ${NAME}"
+            echo "Exiting script"
+            exit 1
+        fi
+
+        echo "Comparing existing downloading data in ${NAME} directory to list saved to log"
         validate_files "${NAME}"
     fi
 }
