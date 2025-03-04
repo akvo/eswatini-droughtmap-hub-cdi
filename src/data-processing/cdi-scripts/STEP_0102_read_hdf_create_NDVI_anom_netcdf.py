@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 import numpy as np
 import numpy.ma as ma
 import re
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 
 
 class NormalizedDifferenceVegetationIndex:
@@ -267,41 +267,31 @@ def main(args):
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     mode = str(args.mode)
-    try:
-        # initialize a new NDVI class #
-        ndvi = NormalizedDifferenceVegetationIndex()
 
-        # verify raw files are HDF5 format #
-        ndvi.convert_h4_to_h5()
+    # initialize a new NDVI class #
+    ndvi = NormalizedDifferenceVegetationIndex()
 
-        # determine the files to process #
-        if mode == 'all':
-            print("Processing all months for NDVI.")
-            files_to_process = ndvi.get_files_to_process(True)
+    # verify raw files are HDF5 format #
+    ndvi.convert_h4_to_h5()
+
+    # determine the files to process #
+    if mode == 'all':
+        print("Processing all months for NDVI.")
+        files_to_process = ndvi.get_files_to_process(True)
+    else:
+        files_to_process = ndvi.get_files_to_process()
+        if len(files_to_process) == 0:
+            print("All months have been processed for NDVI.")
         else:
-            files_to_process = ndvi.get_files_to_process()
-            if len(files_to_process) == 0:
-                print("All months have been processed for NDVI.")
-            else:
-                print("Processing needed months for NDVI.")
+            print("Processing needed months for NDVI.")
 
-        # convert any unprocessed HDF files to NetCDF format #
-        for f in files_to_process:
-            ndvi.create_ndvi_netcdf_file(f)
+    # convert any unprocessed HDF files to NetCDF format #
+    for f in files_to_process:
+        ndvi.create_ndvi_netcdf_file(f)
 
-        # create the NDVI anomaly file #
-        ndvi.update_ndvi_anomaly_file()
-    except IOError as ioe:
-        print(ioe)
-        raise
-    except Exception as ex:
-        print(ex)
-        raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
+    # create the NDVI anomaly file #
+    ndvi.update_ndvi_anomaly_file()
 
 
 if __name__ == '__main__':

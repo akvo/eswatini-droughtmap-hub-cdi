@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 import numpy as np
 import numpy.ma as ma
 import re
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 
 
 class StandardizedPrecipitationIndex:
@@ -437,43 +437,30 @@ def main(args):
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
     mode = str(args.mode)
-    try:
-        # initialize a new SPI class #
-        spi = StandardizedPrecipitationIndex()
+    # initialize a new SPI class #
+    spi = StandardizedPrecipitationIndex()
 
-        # determine the files to process #
-        if mode == 'all':
-            print("Processing all files for CHIRPS.")
-            files_to_process = spi.get_chirps_files_to_process(True)
+    # determine the files to process #
+    if mode == 'all':
+        print("Processing all files for CHIRPS.")
+        files_to_process = spi.get_chirps_files_to_process(True)
+    else:
+        files_to_process = spi.get_chirps_files_to_process()
+        if len(files_to_process) == 0:
+            print("All files have been processed for CHIRPS.")
         else:
-            files_to_process = spi.get_chirps_files_to_process()
-            if len(files_to_process) == 0:
-                print("All files have been processed for CHIRPS.")
-            else:
-                print("Processing needed files for CHIRPS.")
-        # convert any unprocessed TIF files to NetCDF format #
-        for f in files_to_process:
-            spi.create_chirps_netcdf_file(f)
+            print("Processing needed files for CHIRPS.")
+    # convert any unprocessed TIF files to NetCDF format #
+    for f in files_to_process:
+        spi.create_chirps_netcdf_file(f)
 
-        # create the 3-month precip totals #
-        print("Creating precipitation totals")
-        spi.create_precip_from_chirps()
+    # create the 3-month precip totals #
+    print("Creating precipitation totals")
+    spi.create_precip_from_chirps()
 
-        # create the SPI anomaly file #
-        spi.create_spi_anomaly_file()
-    except ValueError as ve:
-        print(ve)
-    except IOError as ioe:
-        print(ioe)
-        raise
-    except Exception as ex:
-        print(ex)
-        raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
+    # create the SPI anomaly file #
+    spi.create_spi_anomaly_file()
 
 
 if __name__ == '__main__':
