@@ -35,7 +35,7 @@ check_and_download_chirps_dataset() {
         if [ "$num_files_in_dir" -lt "$num_files_in_log" ]; then
             download_missing_files "../../input_data/CHIRPS" "../../logs/all-CHIRPS.log" "${DOWNLOAD_CHIRPS_BASE_URL}" ".tif*"
         else
-            echo "All CHIRPS dataset files are up to date"
+            echo "CHIRPS log data matches the download directory."
         fi
     else
         echo "Download all CHIRPS dataset"

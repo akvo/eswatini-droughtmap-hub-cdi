@@ -93,7 +93,7 @@ validate_files() {
         fi
     done
     if $IS_UP_TO_DATE; then
-        echo "All ${dataset_name} files are up to date"
+        echo "${dataset_name} log data matches the download directory."
     else
         # Passing missing_files as an array to download_missing_files
         download_missing_files $input_dir $missing_files
