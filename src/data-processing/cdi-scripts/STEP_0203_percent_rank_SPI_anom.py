@@ -4,7 +4,6 @@ from libs.config_reader import ConfigParser
 from libs.statistics_operations import StatisticOperations
 import libs.netcdf_functions as netcdf
 import numpy as np
-from datetime import datetime
 
 
 class StandardizedPrecipitationIndexRanking:
@@ -128,22 +127,11 @@ def main():
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
-    try:
-        # initialize a new soil moisture class #
-        rankings = StandardizedPrecipitationIndexRanking()
-        # loop thru the months and rank the SPI anomalies #
-        print("Ranking SPI anomaly data...")
-        rankings.rank_spi_parameters()
-    except IOError as ioe:
-        print(ioe)
-        raise
-    except Exception as ex:
-        print(ex)
-        raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
+    # initialize a new soil moisture class #
+    rankings = StandardizedPrecipitationIndexRanking()
+    # loop thru the months and rank the SPI anomalies #
+    print("Ranking SPI anomaly data...")
+    rankings.rank_spi_parameters()
 
 
 if __name__ == '__main__':

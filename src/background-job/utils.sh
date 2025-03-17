@@ -39,25 +39,9 @@ get_num_files_in_log() {
     wc -l <"${log_file}"
 }
 
-# Function to validate if a string is a valid URL
-is_valid_url() {
-    [[ $1 =~ ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]
-}
-
 download_missing_files() {
     local dir=$1
-    local log_file=$2
-    local base_url=$3
-    local pattern=$4
-
-    missing_files=()
-    # Collect missing files
-    while IFS= read -r f; do
-        file_name=$(basename "$f")
-        if [ ! -f "${dir}/${file_name}" ]; then
-            missing_files+=("$f")
-        fi
-    done <"${log_file}"
+    local missing_files=("${@:2}")
 
     # Process files in batches of 10 with 30 seconds delay between batches
     for ((i = 0; i < ${#missing_files[@]}; i += 10)); do
@@ -67,10 +51,6 @@ download_missing_files() {
                 file_name=$(basename "${missing_files[j]}")
                 prefix_url=$(dirname "${missing_files[j]}")
 
-                # Use base_url if prefix_url is not a valid URL
-                if ! is_valid_url "${prefix_url}"; then
-                    prefix_url="${base_url}"
-                fi
                 if [[ -z "${file_name}" ]]; then
                     echo "Error: file_name is empty. Skipping download."
                     return
@@ -85,25 +65,38 @@ download_missing_files() {
     done
 }
 
-log_new_urls() {
-    local BASE_URL=$1
-    local GES_URL=$2
-    local GES_PATTERN=$3
-    local LOG_FILE=$4
-    local seen_urls_file=$5
+# Function to validate files based on dataset name
+validate_files() {
+    local dataset_name=$1
+    local input_dir="../../input_data/${dataset_name}"
+    local log_file="../../logs/all-${dataset_name}_URLS.log"
 
-    if ! grep -q "${BASE_URL}${GES_URL}" "${seen_urls_file}"; then
-        curl -s "${BASE_URL}${GES_URL}" |
-            grep "${GES_PATTERN}" |
-            pup |
-            grep -v "href" |
-            grep "${GES_PATTERN}" |
-            grep -v "\.xml" |
-            sed "s/\ //g" |
-            sed "s|^|${BASE_URL}${GES_URL}|" \
-                >>"${LOG_FILE}"
+    # Extract filenames from URLs in the log file
+    local log_filenames=$(grep -oP '[^/]+(?=\.hdf|\.nc)' $log_file)
 
-        echo "${BASE_URL}${GES_URL}" >>"${seen_urls_file}"
+    # Extract full filenames from the input directory, ignoring the _h5 suffix
+    local input_filenames=$(ls $input_dir | sed 's/_h5//')
+
+    # Validate each URL in the log file against the filenames in the input directory
+    IS_UP_TO_DATE=true
+    missing_files=()
+    for log_filename in $log_filenames; do
+        if ! echo "$input_filenames" | grep -q "$log_filename"; then
+            IS_UP_TO_DATE=false
+            echo "Missing: $log_filename"
+            # Get the line number of the missing log filename
+            line_number=$(grep -n "$log_filename" "$log_file" | cut -d: -f1)
+            # Get the full URL by line number
+            full_url=$(sed "${line_number}q;d" "$log_file")
+            # Add the full URL to the missing files list
+            missing_files+=("$full_url")
+        fi
+    done
+    if $IS_UP_TO_DATE; then
+        echo "${dataset_name} log data matches the download directory."
+    else
+        # Passing missing_files as an array to download_missing_files
+        download_missing_files $input_dir $missing_files
     fi
 }
 
@@ -115,42 +108,75 @@ check_and_create_download_log() {
 
     remove_tmp_files "../../input_data/${NAME}"
 
+    echo "Downloading list of available ${NAME} data and saving to log"
     URL_DIRS=$(curl -s "${BASE_URL}" |
         grep "\[DIR\]" |
         grep -v "doc" |
         grep -oP '(?<=href=")[^"]*')
 
-    seen_urls_file="/tmp/seen_${NAME}.txt"
-    if [ ! -f "${seen_urls_file}" ]; then
-        touch "${seen_urls_file}"
-    fi
-
     if [ ! -f "../../logs/${LOG_NAME}" ]; then
-        # Clear the file at the beginning of the script
-        >"${seen_urls_file}"
-
+        # Create log file
         for URLS in ${URL_DIRS}; do
             GES_URL="${URL}${URLS}"
-            log_new_urls "${BASE_URL}" "${GES_URL}" "${GES_PATTERN}" "../../logs/${LOG_NAME}.tmp" "${seen_urls_file}"
+            # Grab all files
+            all_files=$(curl -s "${BASE_URL}${GES_URL}")
+
+            # Choose only matched files by GES_PATTERN
+            matched_files=$(echo "${all_files}" | grep "${GES_PATTERN}" | pup | grep -v "href" | grep "${GES_PATTERN}" | grep -v "\.xml" | sed "s/\ //g")
+
+            # Insert to log file
+            echo "${matched_files}" | sed "s|^|${BASE_URL}${GES_URL}|" >>"../../logs/${LOG_NAME}.tmp"
+            sleep 5
         done
         mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
         sed -i '/xml/d' "../../logs/${LOG_NAME}"
     fi
 
+    # get last item from URL_DIRS. eg:
+    last_item=$(echo "${URL_DIRS}" | tail -n 1)
+    # Check if last_item doenst exists in log file
+    if ! grep -q "${BASE_URL}${last_item}" "../../logs/${LOG_NAME}"; then
+        # Add last_item to log file
+        echo "${BASE_URL}${last_item}" >>"../../logs/${LOG_NAME}"
+    fi
+
     if [ -f "../../logs/${LOG_NAME}" ]; then
-        LAST_URL_DIR=$(echo "$URL_DIRS" | tail -n 1)
-        log_new_urls "${BASE_URL}" "${LAST_URL_DIR}" "${GES_PATTERN}" "../../logs/${LOG_NAME}" "${seen_urls_file}"
-        # Modify log file if there any duplicated lines
-        awk '!seen[$0]++' "../../logs/${LOG_NAME}" >"../../logs/${LOG_NAME}.tmp"
-        mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
+        # Fix incomplete URLs by refetching them
+        incomplete_urls=$(grep -E '/$' "../../logs/${LOG_NAME}")
+        if [ ! -z "$incomplete_urls" ]; then
+            for url in $incomplete_urls; do
+                # Grab all files
+                all_files=$(curl -s "${url}")
 
-        num_files_in_log=$(get_num_files_in_log "../../logs/${LOG_NAME}")
-        num_files_in_dir=$(get_num_files_in_dir "../../input_data/${NAME}")
+                # Choose only matched files by GES_PATTERN
+                matched_files=$(echo "${all_files}" | grep "${GES_PATTERN}" | pup | grep -v "href" | grep "${GES_PATTERN}" | grep -v "\.xml" | sed "s/\ //g")
 
-        if [ "$num_files_in_dir" -lt "$num_files_in_log" ]; then
-            download_missing_files "../../input_data/${NAME}" "../../logs/${LOG_NAME}" "${BASE_URL}" "${GES_PATTERN}"
-        else
-            echo "All ${NAME} files are up to date"
+                # Insert to log file
+                echo "${url}${matched_files}" >> "../../logs/${LOG_NAME}"
+            done
+
+            # delete all incomplete URLs
+            sed -i '/\/$/d' "../../logs/${LOG_NAME}"
         fi
+
+        echo "Checking if new data was expected for new month"
+
+        current_month=$(date +%Y.%m)
+        expected_month=$(date -d "2 months ago" +%Y.%m)
+        # if NAME is equal "SM" then change format expected_month to %Y%m
+        if [ "${NAME}" == "SM" ]; then
+            expected_month=$(date -d "2 months ago" +%Y%m)
+        fi
+
+        echo "Current month: ${current_month}. Expecting new data for: ${expected_month}"
+
+        if ! grep -q "${expected_month}" "../../logs/${LOG_NAME}"; then
+            echo "No data for ${expected_month} found for ${NAME}"
+            echo "Exiting script"
+            exit 1
+        fi
+
+        echo "Comparing existing downloading data in ${NAME} directory to list saved to log"
+        validate_files "${NAME}"
     fi
 }

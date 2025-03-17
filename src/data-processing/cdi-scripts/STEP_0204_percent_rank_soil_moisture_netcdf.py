@@ -4,9 +4,9 @@ from libs.config_reader import ConfigParser
 from libs.file_operations import FileHandler
 from libs.statistics_operations import StatisticOperations
 import libs.netcdf_functions as netcdf
-import numpy as np
+# import numpy as np
 import re
-from datetime import datetime, date
+from datetime import date
 
 
 class SoilMoistureRanking:
@@ -179,33 +179,22 @@ def main():
     """
     This is the main entry point for the program
     """
-    script_start = datetime.now()
-    try:
-        # initialize a new soil moisture class #
-        rankings = SoilMoistureRanking()
-        # loop thru the months and rank the three soil moisture parameters #
-        for index, month in enumerate(rankings.get_month_order()):
-            print("Ranking data for month: {}".format(month))
-            # load data #
-            rankings.load_soil_moisture_data(month)
+    # initialize a new soil moisture class #
+    rankings = SoilMoistureRanking()
+    # loop thru the months and rank the three soil moisture parameters #
+    for index, month in enumerate(rankings.get_month_order()):
+        print("Ranking data for month: {}".format(month))
+        # load data #
+        rankings.load_soil_moisture_data(month)
 
-            # rank root zone data #
-            rankings.rank_parameter('RootZone_SM', index)
+        # rank root zone data #
+        rankings.rank_parameter('RootZone_SM', index)
 
-            # rank root zone2 data #
-            rankings.rank_parameter('RootZone2_SM', index)
+        # rank root zone2 data #
+        rankings.rank_parameter('RootZone2_SM', index)
 
-            # rank total column data #
-            rankings.rank_parameter('TotalColumn_SM', index)
-    except IOError as ioe:
-        print(ioe)
-        raise
-    except Exception as ex:
-        print(ex)
-        raise
-    finally:
-        script_end = datetime.now()
-        print("Script execution: {}".format(script_end - script_start))
+        # rank total column data #
+        rankings.rank_parameter('TotalColumn_SM', index)
 
 
 if __name__ == '__main__':
