@@ -14,8 +14,13 @@ check_and_download_chirps_dataset() {
     # If the log file is empty or the last line is 2 previous months
     # based on this pattern chirps-v2.0.{year}.{month}.tif.gz
     # then update the log file
-    echo "Downloading list of available CHIRPS data and saving to log"
-    if [ "$LOG_IS_EMPTY" -eq 0 ] || [ "$(tail -n 1 "../../logs/all-CHIRPS.log" | cut -d '.' -f 3)" -lt "$(date -d "2 months ago" "+%Y")" ]; then
+
+    # Check what's being extracted from the last line
+    l_chirp_date="$(tail -n 1 "../../logs/all-CHIRPS.log" | cut -d '.' -f 3,4)"
+    current_date="$(date -d "1 months ago" "+%Y.%m")"
+
+    if [ "$LOG_IS_EMPTY" -eq 0 ] || [ "$l_chirp_date" \< "$current_date" ]; then
+        echo "Downloading list of available CHIRPS data and saving to log"
         curl -s "${DOWNLOAD_CHIRPS_BASE_URL}" \
             | grep "${DOWNLOAD_CHIRPS_PATTERN}" \
             | pup \
@@ -33,7 +38,15 @@ check_and_download_chirps_dataset() {
         echo "Number of files in all-CHIRPS.log log file: ${num_files_in_log}"
 
         if [ "$num_files_in_dir" -lt "$num_files_in_log" ]; then
-            download_missing_files "../../input_data/CHIRPS" "../../logs/all-CHIRPS.log" "${DOWNLOAD_CHIRPS_BASE_URL}" ".tif*"
+            missing_files=()
+            # get last item from all-CHIRPS.log
+            last_item=$(tail -n 1 "../../logs/all-CHIRPS.log")
+            # Check if last_item doenst exists in log file
+            if ! grep -q "${last_item}" "../../input_data/CHIRPS"; then
+                # Add last_item to log file
+                missing_files+=("${DOWNLOAD_CHIRPS_BASE_URL}${last_item}")
+            fi
+            download_missing_files "../../input_data/CHIRPS" $missing_files
         else
             echo "CHIRPS log data matches the download directory."
         fi
