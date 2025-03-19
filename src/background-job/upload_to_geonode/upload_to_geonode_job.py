@@ -129,7 +129,8 @@ def update_dataset_metadata(dataset_id, metadata):
 def tracking_upload_progress(
     execution_id: int,
     taxonomy: str,
-    categories: object
+    categories: object,
+    date_created: str = None
 ):
     if not execution_id:
         return
@@ -141,7 +142,12 @@ def tracking_upload_progress(
             error_message = json_response["output_params"]["errors"]
             raise RuntimeError(f"API request failed: {error_message}")
         if not json_response["finished"]:
-            tracking_upload_progress(execution_id, taxonomy, categories)
+            tracking_upload_progress(
+                execution_id,
+                taxonomy,
+                categories,
+                date_created,
+            )
         if json_response["status"] == "finished":
             dataset = json_response.get("output_params").get("resources")[0]
             if dataset.get("id"):
@@ -151,6 +157,7 @@ def tracking_upload_progress(
                         "advertised": False,
                         "is_published": False,
                         "category": categories.get(taxonomy),
+                        "date": date_created,
                     },
                 )
     else:
@@ -162,13 +169,18 @@ def main():
     categories = get_categories(f"{geonode_url}api/categories/")
     dataset_files = get_recent_files()
     for dataset_file in dataset_files:
-        print(f"Uploading {dataset_file} to GeoNode...")
+        basename = os.path.basename(dataset_file)
+        date_part = basename.split('_')[-1].replace('.tif', '')
+        date_created = f"{date_part[:4]}-{date_part[4:6]}-01"
+
+        print(f"Uploading {basename} to GeoNode...")
         execution_id = upload_to_geonode(dataset_file)
         taxonomy = dataset_file.split('/')[-2]
         tracking_upload_progress(
-            execution_id,
-            taxonomy.lower(),
-            categories
+            execution_id=execution_id,
+            taxonomy=taxonomy.lower(),
+            categories=categories,
+            date_created=date_created
         )
 
 
