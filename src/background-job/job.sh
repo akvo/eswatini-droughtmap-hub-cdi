@@ -18,7 +18,7 @@ source ./job_04_upload_to_geonode.sh
 
 # Exit if wget, pup, gunzip, and curl aren't available
 for cmd in wget pup gunzip curl; do
-    if ! command -v $cmd &> /dev/null; then
+    if ! command -v $cmd &>/dev/null; then
         echo "$cmd could not be found, please install it to proceed."
         exit 1
     fi
@@ -28,11 +28,11 @@ echo "All required commands are available."
 login_and_download_cookies
 
 check_and_download_chirps_dataset
+extract_and_rename_chirps
+
 check_and_download_LST_dataset
 check_and_download_NDVI_dataset
 check_and_download_SM_dataset
-
-extract_and_rename_chirps
 
 run_cdi_scripts
 upload_to_geonode
