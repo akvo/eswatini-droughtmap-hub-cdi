@@ -109,6 +109,13 @@ check_and_create_download_log() {
     remove_tmp_files "../../input_data/${NAME}"
 
     echo "Downloading list of available ${NAME} data and saving to log"
+    # Make sure the URL is accessible by checking the response code
+    response_code=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}")
+    if [ "$response_code" -ne 200 ]; then
+        echo "Error: Unable to access ${BASE_URL}. Response code: ${response_code}"
+        echo "Exiting script"
+        exit 1
+    fi
     URL_DIRS=$(curl -s "${BASE_URL}" |
         grep "\[DIR\]" |
         grep -v "doc" |
