@@ -42,7 +42,7 @@ check_and_download_chirps_dataset() {
             # get last item from all-CHIRPS.log
             last_item=$(tail -n 1 "../../logs/all-CHIRPS.log")
             # Check if last_item doenst exists in log file
-            if ! grep -q "${last_item}" "../../input_data/CHIRPS"; then
+            if ! find "../../input_data/CHIRPS" -type f -name "*${last_item}*" | grep -q .; then
                 # Add last_item to log file
                 missing_files+=("${DOWNLOAD_CHIRPS_BASE_URL}${last_item}")
             fi
