@@ -1,1 +1,150 @@
-# eswatini-droughtmap-hub-cdi
+# Eswatini Drought Map Hub - CDI Automation
+
+This repository contains the automation scripts for generating and updating drought-related data for the **Eswatini Drought Map Hub** using the **CDI (Climate Data Infrastructure)** framework. The script is designed to run periodically (ideally on a monthly basis) to ensure the data remains up-to-date.
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Prerequisites](#prerequisites)
+3. [Setup Instructions](#setup-instructions)
+4. [Running the Script](#running-the-script)
+5. [Environment Variables](#environment-variables)
+6. [Automation](#automation)
+7. [Contributing](#contributing)
+8. [License](#license)
+
+---
+
+## Overview
+
+The Eswatini CDI Automation script (`job.sh`) is responsible for processing and updating drought-related data for the Eswatini Drought Map Hub. This script is intended to be executed on a regular schedule (e.g., monthly) to ensure the data remains current and accurate.
+
+---
+
+## Prerequisites
+
+Before running the script, ensure the following prerequisites are met:
+
+1. **Operating System**: The script is designed to run on Linux-based systems.
+2. **Dependencies**:
+ - Bash shell
+ - Required tools and libraries installed (e.g., `curl`, `jq`, etc.)
+3. **Environment Configuration**: A `.env` file must be created with the necessary environment variables (see [Environment Variables](#environment-variables)).
+
+---
+
+## Setup Instructions
+
+1. **Clone the Repository**:
+ ```bash
+ git clone https://github.com/akvo/eswatini-droughtmap-hub-cdi.git
+ cd eswatini-droughtmap-hub-cdi
+ ```
+
+2. **Set Up Environment Variables**:
+ - Copy the example environment file to `.env`:
+   ```bash
+   cp env.example .env
+   ```
+ - Open the `.env` file and populate it with the required values:
+   ```bash
+   nano .env
+   ```
+
+3. **Install Dependencies**:
+ Ensure all required tools and libraries are installed. For example:
+ ```bash
+ sudo apt-get update
+ sudo apt-get install curl jq
+ ```
+
+---
+
+## Running the Script
+
+To execute the script manually, run the following command:
+
+```bash
+./src/background-job/job.sh
+```
+
+### Notes:
+- Ensure the `.env` file is properly configured before running the script.
+- The script should ideally be executed on a monthly basis to keep the data updated.
+
+---
+## Environment Variables
+
+The script relies on the following environment variables, which must be defined in the `.env` file. These variables configure the data sources, authentication, and target systems for the automation process.
+
+| Variable Name               | Description                                                                                   | Example Value                                |
+|-----------------------------|-----------------------------------------------------------------------------------------------|----------------------------------------------|
+| `DOWNLOAD_CHIRPS_BASE_URL`  | Base URL for downloading CHIRPS (Climate Hazards Group InfraRed Precipitation with Station) data. | `https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_monthly/tifs/` |
+| `DOWNLOAD_CHIRPS_PATTERN`   | File pattern to match CHIRPS data files (e.g., `.tif.gz`).                                   | `.tif.gz`                                    |
+| `DOWNLOAD_SM_BASE_URL`      | Base URL for downloading Soil Moisture (SM) data from NASA's FLDAS dataset.                  | `https://hydro1.gesdisc.eosdis.nasa.gov/data/FLDAS/FLDAS_NOAH01_C_GL_M.001/` |
+| `DOWNLOAD_SM_PATTERN`       | File pattern to match Soil Moisture data files (e.g., `FLDAS.*\.nc`).                       | `FLDAS.*\.nc`                                |
+| `DOWNLOAD_LST_BASE_URL`     | Base URL for downloading Land Surface Temperature (LST) data from MODIS.                     | `https://e4ftl01.cr.usgs.gov/MOLT/MOD21C3.061/` |
+| `DOWNLOAD_LST_PATTERN`      | File pattern to match LST data files (e.g., `.hdf`).                                         | `.hdf`                                       |
+| `DOWNLOAD_NDVI_BASE_URL`    | Base URL for downloading Normalized Difference Vegetation Index (NDVI) data from MODIS.     | `https://e4ftl01.cr.usgs.gov/MOLT/MOD13C2.061/` |
+| `DOWNLOAD_NDVI_PATTERN`     | File pattern to match NDVI data files (e.g., `.hdf`).                                        | `.hdf`                                       |
+| `EARTHDATA_USERNAME`        | Username for authenticating with NASA Earthdata services (required for downloading datasets). | `yourusername`                               |
+| `EARTHDATA_PASSWORD`        | Password for authenticating with NASA Earthdata services.                                    | `yourpassword`                               |
+| `GEONODE_URL`               | Base URL of the GeoNode instance where processed data will be uploaded.                      | `https://yourgeonodeinstance.com`            |
+| `GEONODE_USERNAME`          | Username or email for authenticating with the GeoNode instance.                              | `yourgeonodeusernameoremail`                 |
+| `GEONODE_PASSWORD`          | Password for authenticating with the GeoNode instance.                                       | `yourgeonodepassword`                        |
+
+---
+
+### Notes:
+- Ensure that all URLs are correct and accessible from your system.
+- Replace placeholder values (e.g., `yourusername`, `yourpassword`) with actual credentials.
+- The file patterns (e.g., `.tif.gz`, `.hdf`) are used to identify specific files during the download process. Modify them only if the file naming conventions change.
+
+---
+
+## Automation
+
+To automate the execution of the script, you can use a cron job. Follow these steps:
+
+1. Open the crontab editor:
+ ```bash
+ crontab -e
+ ```
+
+2. Add the following line to schedule the script to run monthly:
+ ```bash
+ 0 0 1 * * /path/to/repository/src/background-job/job.sh >> /path/to/logfile.log 2>&1
+ ```
+ - This example runs the script at midnight on the first day of every month.
+ - Replace `/path/to/repository` with the actual path to your repository.
+ - Logs will be appended to `/path/to/logfile.log`.
+
+3. Save and exit the crontab editor.
+
+---
+
+## Contributing
+
+We welcome contributions to improve this project! To contribute:
+
+1. Fork the repository.
+2. Create a new branch for your changes:
+ ```bash
+ git checkout -b feature/your-feature-name
+ ```
+3. Commit your changes and push them to your fork:
+ ```bash
+ git commit -m "Add your descriptive commit message"
+ git push origin feature/your-feature-name
+ ```
+4. Submit a pull request to the `main` branch of this repository.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). See the `LICENSE` file for details.
+
+---
+
+If you have any questions or need further assistance, feel free to open an issue in this repository.
