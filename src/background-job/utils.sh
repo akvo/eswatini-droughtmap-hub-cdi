@@ -95,8 +95,8 @@ validate_files() {
     if $IS_UP_TO_DATE; then
         echo "${dataset_name} log data matches the download directory."
     else
-        # Passing missing_files as an array to download_missing_files
-        download_missing_files $input_dir $missing_files
+        # Pass the input_dir and all missing_files properly
+        download_missing_files "$input_dir" "${missing_files[@]}"
     fi
 }
 
@@ -169,10 +169,10 @@ check_and_create_download_log() {
         echo "Checking if new data was expected for new month"
 
         current_month=$(date +%Y.%m)
-        expected_month=$(date -d "2 months ago" +%Y.%m)
+        expected_month=$(date -d "1 month ago" +%Y.%m)
         # if NAME is equal "SM" then change format expected_month to %Y%m
         if [ "${NAME}" == "SM" ]; then
-            expected_month=$(date -d "2 months ago" +%Y%m)
+            expected_month=$(date -d "1 month ago" +%Y%m)
         fi
 
         echo "Current month: ${current_month}. Expecting new data for: ${expected_month}"
@@ -186,4 +186,22 @@ check_and_create_download_log() {
         echo "Comparing existing downloading data in ${NAME} directory to list saved to log"
         validate_files "${NAME}"
     fi
+}
+
+# Clean up the output data directory and working_data directory
+# Remove all *.nc in ./output_data
+# Remove all *.tif for each subdirectory in ./output_data/GeoTiffs
+# Remove all *.nc in ./src/data-processing/cdi-scripts/working_data/LST
+# Remove all *.nc in ./src/data-processing/cdi-scripts/working_data/NDVI
+# Remove all *.nc in ./src/data-processing/cdi-scripts/working_data/SPI
+
+cleanup_output_data() {
+    echo "Cleaning up output data directory"
+    find ../../output_data -type f -name "*.nc" -delete
+    find ../../output_data/GeoTiffs -type f -name "*.tif" -delete
+    find ../../src/data-processing/cdi-scripts/working_data/LST -type f -name "*.nc" -delete
+    find ../../src/data-processing/cdi-scripts/working_data/NDVI -type f -name "*.nc" -delete
+    find ../../src/data-processing/cdi-scripts/working_data/SPI -type f -name "*.nc" -delete
+
+    echo "Cleanup complete"
 }
