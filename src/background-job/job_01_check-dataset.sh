@@ -17,7 +17,7 @@ check_and_download_chirps_dataset() {
 
     # Check what's being extracted from the last line
     l_chirp_date="$(tail -n 1 "../../logs/all-CHIRPS.log" | cut -d '.' -f 3,4)"
-    current_date="$(date -d "1 months ago" "+%Y.%m")"
+    current_date="$(date -d "1 month ago" "+%Y.%m")"
 
     if [ "$LOG_IS_EMPTY" -eq 0 ] || [ "$l_chirp_date" \< "$current_date" ]; then
         echo "Downloading list of available CHIRPS data and saving to log"
