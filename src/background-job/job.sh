@@ -34,5 +34,7 @@ check_and_download_LST_dataset
 check_and_download_NDVI_dataset
 check_and_download_SM_dataset
 
+cleanup_output_data
+
 run_cdi_scripts
 upload_to_geonode
