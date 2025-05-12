@@ -84,12 +84,39 @@ validate_files() {
         if ! echo "$input_filenames" | grep -q "$log_filename"; then
             IS_UP_TO_DATE=false
             echo "Missing: $log_filename"
-            # Get the line number of the missing log filename
-            line_number=$(grep -n "$log_filename" "$log_file" | cut -d: -f1)
-            # Get the full URL by line number
-            full_url=$(sed "${line_number}q;d" "$log_file")
-            # Add the full URL to the missing files list
-            missing_files+=("$full_url")
+            # Extract matching lines (with line numbers) from the log file
+            mapfile -t matches <<< "$(grep -n "\b${log_filename}\.(nc|hdf)" "$log_file")"
+
+            # Check if there are any matches
+            if [ ${#matches[@]} -eq 0 ]; then
+                echo "No matching URLs found for $log_filename"
+                continue
+            fi
+
+            # Loop through each match
+            for match in "${matches[@]}"; do
+                # Only process non-empty lines containing ":"
+                if [[ -n "$match" && "$match" == *:* ]]; then
+                    line_num="${match%%:*}"
+                    url="${match#*:}"
+
+                    echo "Match found on line $line_num: $url"
+
+                    # Double-check using sed
+                    full_url=$(sed -n "${line_num}p" "$log_file")
+
+                    if [[ "$full_url" == "$url" ]]; then
+                        echo "Confirmed URL: $full_url"
+                        missing_files+=("$full_url")
+                    else
+                        echo "Mismatch on line $line_num!"
+                        echo "Expected: $url"
+                        echo "Actual:   $full_url"
+                    fi
+                else
+                    echo "Invalid match line: '$match'"
+                fi
+            done
         fi
     done
     if $IS_UP_TO_DATE; then
