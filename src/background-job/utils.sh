@@ -79,6 +79,7 @@ validate_files() {
 
     IS_UP_TO_DATE=true
     missing_files=()
+    unmatched_missing=()
 
     echo "Validating files for dataset: $dataset_name"
 
@@ -118,11 +119,12 @@ validate_files() {
                 else
                     echo "Invalid match line (no colon): '$match'"
                 fi
-            done < <(grep -n "\b${log_filename}\.(nc|hdf)" "$log_file")
+            done < <(grep -n "\b${log_filename}\.[^./]*\.\(nc\|hdf\)" "$log_file")
 
             # If no matching URL was found at all
             if ! $found_match; then
                 echo "No matching URLs found for: $log_filename"
+                unmatched_missing+=("$log_filename")
             fi
         fi
     done
@@ -132,6 +134,12 @@ validate_files() {
     else
         echo "Some files are missing. Downloading now..."
         download_missing_files "$input_dir" "${missing_files[@]}"
+
+        if [ ${#unmatched_missing[@]} -gt 0 ]; then
+            echo ""
+            echo "The following files were missing but had no matching URL in the log:"
+            printf '  %s\n' "${unmatched_missing[@]}"
+        fi
     fi
 }
 
@@ -214,8 +222,8 @@ check_and_create_download_log() {
 
         if ! grep -q "${expected_month}" "../../logs/${LOG_NAME}"; then
             echo "No data for ${expected_month} found for ${NAME}"
-            echo "Exiting script"
-            exit 1
+            # echo "Exiting script"
+            # exit 1
         fi
 
         echo "Comparing existing downloading data in ${NAME} directory to list saved to log"
