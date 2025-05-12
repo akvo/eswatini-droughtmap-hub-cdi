@@ -71,58 +71,66 @@ validate_files() {
     local input_dir="../../input_data/${dataset_name}"
     local log_file="../../logs/all-${dataset_name}_URLS.log"
 
-    # Extract filenames from URLs in the log file
-    local log_filenames=$(grep -oP '[^/]+(?=\.hdf|\.nc)' $log_file)
+    # Extract filenames from URLs in the log file (basename before .hdf or .nc)
+    local log_filenames=$(grep -oP '[^/]+(?=\.hdf|\.nc)' "$log_file")
 
     # Extract full filenames from the input directory, ignoring the _h5 suffix
-    local input_filenames=$(ls $input_dir | sed 's/_h5//')
+    local input_filenames=$(ls "$input_dir" 2>/dev/null | sed 's/_h5//')
 
-    # Validate each URL in the log file against the filenames in the input directory
     IS_UP_TO_DATE=true
     missing_files=()
+
+    echo "Validating files for dataset: $dataset_name"
+
+    # Loop through each filename in the log
     for log_filename in $log_filenames; do
-        if ! echo "$input_filenames" | grep -q "$log_filename"; then
+        if echo "$input_filenames" | grep -q "^$log_filename$"; then
+            echo "Found: $log_filename"
+        else
             IS_UP_TO_DATE=false
             echo "Missing: $log_filename"
-            # Extract matching lines (with line numbers) from the log file
-            mapfile -t matches <<< "$(grep -n "\b${log_filename}\.(nc|hdf)" "$log_file")"
 
-            # Check if there are any matches
-            if [ ${#matches[@]} -eq 0 ]; then
-                echo "No matching URLs found for $log_filename"
-                continue
-            fi
+            # Try to find matching URL(s) in the log file
+            found_match=false
 
-            # Loop through each match
-            for match in "${matches[@]}"; do
-                # Only process non-empty lines containing ":"
-                if [[ -n "$match" && "$match" == *:* ]]; then
+            # Use while-read loop to safely process matches line by line
+            while IFS= read -r match; do
+                [[ -z "$match" ]] && continue
+
+                if [[ "$match" == *:* ]]; then
                     line_num="${match%%:*}"
                     url="${match#*:}"
 
                     echo "Match found on line $line_num: $url"
 
-                    # Double-check using sed
+                    # Confirm with sed
                     full_url=$(sed -n "${line_num}p" "$log_file")
 
                     if [[ "$full_url" == "$url" ]]; then
                         echo "Confirmed URL: $full_url"
                         missing_files+=("$full_url")
+                        found_match=true
                     else
                         echo "Mismatch on line $line_num!"
                         echo "Expected: $url"
                         echo "Actual:   $full_url"
                     fi
                 else
-                    echo "Invalid match line: '$match'"
+                    echo "Invalid match line (no colon): '$match'"
                 fi
-            done
+            done < <(grep -n "\b${log_filename}\.(nc|hdf)" "$log_file")
+
+            # If no matching URL was found at all
+            if ! $found_match; then
+                echo "No matching URLs found for: $log_filename"
+            fi
         fi
     done
+
     if $IS_UP_TO_DATE; then
         echo "${dataset_name} log data matches the download directory."
     else
-        # Pass the input_dir and all missing_files properly
+        echo "Some files are missing. Downloading now..."
         download_missing_files "$input_dir" "${missing_files[@]}"
     fi
 }
