@@ -78,21 +78,13 @@ validate_files() {
 
     # Read each URL line by line from the log file
     while IFS= read -r url; do
-        # Skip empty lines
         [[ -z "$url" ]] && continue
 
-        # Extract the filename (last segment after the last "/")
         filename=$(basename "$url")
-
-        # Full path to check existence (original and with _h5.hdf suffix)
         filepath="${input_dir}/${filename}"
         filepath_h5="${input_dir}/${filename%.*}_h5.hdf"
 
-        if [[ -f "$filepath" ]]; then
-            echo "Found: $filename"
-        elif [[ -f "$filepath_h5" ]]; then
-            echo "Found: ${filename%.*}_h5.hdf"
-        else
+        if [[ ! -f "$filepath" && ! -f "$filepath_h5" ]]; then
             echo "Missing: $filename"
             IS_UP_TO_DATE=false
             missing_files+=("$url")
