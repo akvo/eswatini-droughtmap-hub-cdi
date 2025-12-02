@@ -99,6 +99,71 @@ validate_files() {
     fi
 }
 
+# Generic function to check and download any dataset (for simple single-directory datasets like CHIRPS)
+check_and_download_dataset() {
+    local BASE_URL=$1
+    local PATTERN=$2
+    local NAME=$3
+
+    printf "\n===Check and download ${NAME} dataset===\n\n"
+    remove_tmp_files "../../input_data/${NAME}"
+
+    # Check if log file exists
+    if [ ! -f "../../logs/all-${NAME}.log" ]; then
+        touch "../../logs/all-${NAME}.log"
+    fi
+
+    LOG_IS_EMPTY=$(cat "../../logs/all-${NAME}.log" | wc -l)
+
+    # Check what's being extracted from the last line
+    # For CHIRPS pattern: chirps-v2.0.{year}.{month}.tif.gz
+    l_date="$(tail -n 1 "../../logs/all-${NAME}.log" | cut -d '.' -f 3,4)"
+    # Cross-platform date command (macOS uses BSD date, Linux uses GNU date)
+    if date -v-1d > /dev/null 2>&1; then
+        # BSD date (macOS)
+        current_date="$(date -v-1m "+%Y.%m")"
+    else
+        # GNU date (Linux)
+        current_date="$(date -d "1 month ago" "+%Y.%m")"
+    fi
+
+    if [ "$LOG_IS_EMPTY" -eq 0 ] || [ "$l_date" \< "$current_date" ]; then
+        echo "Downloading list of available ${NAME} data and saving to log"
+        curl -s "${BASE_URL}" \
+            | grep "${PATTERN}" \
+            | pup \
+            | grep -v "href" \
+            | grep "${PATTERN}" \
+            | sed "s/\ //g" > "../../logs/all-${NAME}.log"
+    fi
+
+    if ls ../../input_data/${NAME}/*.tif* 1> /dev/null 2>&1; then
+        num_files_in_dir=$(get_num_files_in_dir "../../input_data/${NAME}")
+        num_files_in_log=$(get_num_files_in_log "../../logs/all-${NAME}.log")
+
+        echo "Comparing existing downloading data in ${NAME} directory to list saved to log"
+        echo "Number of files in ${NAME} directory: ${num_files_in_dir}"
+        echo "Number of files in all-${NAME}.log log file: ${num_files_in_log}"
+
+        if [ "$num_files_in_dir" -lt "$num_files_in_log" ]; then
+            missing_files=()
+            # get last item from all-${NAME}.log
+            last_item=$(tail -n 1 "../../logs/all-${NAME}.log")
+            # Check if last_item doesn't exist in directory
+            if ! find "../../input_data/${NAME}" -type f -name "*${last_item}*" | grep -q .; then
+                # Add last_item to missing files
+                missing_files+=("${BASE_URL}${last_item}")
+            fi
+            download_missing_files "../../input_data/${NAME}" $missing_files
+        else
+            echo "${NAME} log data matches the download directory."
+        fi
+    else
+        echo "Download all ${NAME} dataset"
+        ./download.sh "${BASE_URL}" "${PATTERN}" "../../logs/all-${NAME}.log" "../../input_data/${NAME}"
+    fi
+}
+
 check_and_create_download_log() {
     local BASE_URL=$1
     local GES_PATTERN=$2
@@ -168,10 +233,21 @@ check_and_create_download_log() {
         echo "Checking if new data was expected for new month"
 
         current_month=$(date +%Y.%m)
-        expected_month=$(date -d "1 month ago" +%Y.%m)
-        # if NAME is equal "SM" then change format expected_month to %Y%m
-        if [ "${NAME}" == "SM" ]; then
-            expected_month=$(date -d "1 month ago" +%Y%m)
+        # Cross-platform date command (macOS uses BSD date, Linux uses GNU date)
+        if date -v-1d > /dev/null 2>&1; then
+            # BSD date (macOS)
+            expected_month=$(date -v-1m +%Y.%m)
+            # if NAME is equal "SM" then change format expected_month to %Y%m
+            if [ "${NAME}" == "SM" ]; then
+                expected_month=$(date -v-1m +%Y%m)
+            fi
+        else
+            # GNU date (Linux)
+            expected_month=$(date -d "1 month ago" +%Y.%m)
+            # if NAME is equal "SM" then change format expected_month to %Y%m
+            if [ "${NAME}" == "SM" ]; then
+                expected_month=$(date -d "1 month ago" +%Y%m)
+            fi
         fi
 
         echo "Current month: ${current_month}. Expecting new data for: ${expected_month}"

@@ -52,9 +52,9 @@ is_weight_positive() {
     awk -v w="$weight" 'BEGIN { exit (w <= 0) }'
 }
 
-login_and_download_cookies
+# login_and_download_cookies
 
-check_and_download_chirps_dataset
+check_and_download_dataset "${DOWNLOAD_CHIRPS_BASE_URL}" "${DOWNLOAD_CHIRPS_PATTERN}" "CHIRPS"
 extract_and_rename_chirps
 
 # Get weight values from config
