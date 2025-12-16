@@ -280,3 +280,70 @@ cleanup_output_data() {
 
     echo "Cleanup complete"
 }
+
+# Variant of check_and_create_download_log for flat (single-level) directories
+check_and_create_download_log_flat() {
+    local BASE_URL=$1
+    local GES_PATTERN=$2
+    local NAME=$3
+    LOG_NAME="all-${NAME}_URLS.log"
+
+    remove_tmp_files "../../input_data/${NAME}"
+
+    echo "Downloading list of available ${NAME} data and saving to log (flat)"
+    # Make sure the URL is accessible by checking the response code
+    response_code=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}")
+    if [ "$response_code" -ne 200 ]; then
+        echo "Error: Unable to access ${BASE_URL}. Response code: ${response_code}"
+        echo "Exiting script"
+        exit 1
+    fi
+
+    # Grab listing of files from BASE_URL and filter by pattern
+    all_files=$(curl -s "${BASE_URL}")
+    matched_files=$(echo "${all_files}" | grep "${GES_PATTERN}" | pup | grep -v "href" | grep "${GES_PATTERN}" | grep -v "\.xml" | sed "s/\ //g")
+
+    if [ ! -f "../../logs/${LOG_NAME}" ]; then
+        # Create log file with full URLs
+        echo "${matched_files}" | sed "s|^|${BASE_URL}|" > "../../logs/${LOG_NAME}.tmp"
+        mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
+        sed -i '/xml/d' "../../logs/${LOG_NAME}"
+    fi
+
+    if [ -f "../../logs/${LOG_NAME}" ]; then
+        # Fix any incomplete URLs (trailing slash entries)
+        incomplete_urls=$(grep -E '/$' "../../logs/${LOG_NAME}")
+        if [ ! -z "$incomplete_urls" ]; then
+            for url in $incomplete_urls; do
+                all_files=$(curl -s "${url}")
+                matched_files=$(echo "${all_files}" | grep "${GES_PATTERN}" | pup | grep -v "href" | grep "${GES_PATTERN}" | grep -v "\.xml" | sed "s/\ //g")
+                echo "${url}${matched_files}" >> "../../logs/${LOG_NAME}"
+            done
+            sed -i '/\/$/d' "../../logs/${LOG_NAME}"
+        fi
+
+        echo "Checking if new data was expected for new month"
+
+        current_month=$(date +%Y.%m)
+        if date -v-1d > /dev/null 2>&1; then
+            expected_month=$(date -v-1m +%Y.%m)
+            if [ "${NAME}" == "SM" ]; then
+                expected_month=$(date -v-1m +%Y%m)
+            fi
+        else
+            expected_month=$(date -d "1 month ago" +%Y.%m)
+            if [ "${NAME}" == "SM" ]; then
+                expected_month=$(date -d "1 month ago" +%Y%m)
+            fi
+        fi
+
+        echo "Current month: ${current_month}. Expecting new data for: ${expected_month}"
+
+        if ! grep -q "${expected_month}" "../../logs/${LOG_NAME}"; then
+            echo "No data for ${expected_month} found for ${NAME}"
+        fi
+
+        echo "Comparing existing downloading data in ${NAME} directory to list saved to log"
+        validate_files "${NAME}"
+    fi
+}
