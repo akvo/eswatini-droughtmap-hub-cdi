@@ -8,11 +8,13 @@ password = os.getenv("GEONODE_PASSWORD")
 dataset_path = "../../output_data/GeoTiffs"
 dataset_type = ".tif"
 
+VERIFY = False
+
 
 def get_categories(api_url, file_name="geonode_category.json"):
     try:
         # Fetch data from the API
-        response = requests.get(api_url)
+        response = requests.get(api_url, verify=VERIFY)
         # Will raise an error for 4xx or 5xx status codes
         response.raise_for_status()
 
@@ -70,7 +72,8 @@ def upload_to_geonode(base_file_path, xml_file_path=None, sld_file_path=None):
         api_url,
         auth=(username, password),
         files=files,
-        data=data
+        data=data,
+        verify=VERIFY,
     )
     if response.status_code == 201:
         json_response = response.json()
@@ -118,7 +121,8 @@ def update_dataset_metadata(dataset_id, metadata):
     response = requests.patch(
         api_url,
         auth=(username, password),
-        json=metadata
+        json=metadata,
+        verify=VERIFY
     )
     if response.status_code == 200:
         print("Dataset successfully uploaded!")
@@ -135,7 +139,7 @@ def tracking_upload_progress(
     if not execution_id:
         return
     api_url = f"{geonode_url}api/v2/executionrequest/{execution_id}"
-    response = requests.get(api_url, auth=(username, password))
+    response = requests.get(api_url, auth=(username, password), verify=VERIFY)
     if response.status_code == 200:
         json_response = response.json()["request"]
         if json_response["status"] == "failed":
