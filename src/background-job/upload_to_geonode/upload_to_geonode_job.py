@@ -92,7 +92,7 @@ def get_all_dataset_files():
     return dataset_files
 
 
-def get_recent_files(limit=5):
+def get_recent_files(limit=None):
     dataset_files = []
 
     for root, dirs, files in os.walk(dataset_path):
@@ -104,8 +104,11 @@ def get_recent_files(limit=5):
     # Sort files by modification time (newest first)
     dataset_files.sort(key=lambda x: x[1], reverse=True)
 
-    # Extract file paths, limited to `limit`
-    recent_files = [file[0] for file in dataset_files[:limit]]
+    # Extract file paths, limited to `limit` if provided
+    if limit:
+        recent_files = [file[0] for file in dataset_files[:limit]]
+    else:
+        recent_files = [file[0] for file in dataset_files]
 
     # Raise an error if no files are found
     if not recent_files:
@@ -171,7 +174,10 @@ def tracking_upload_progress(
 
 def main():
     categories = get_categories(f"{geonode_url}api/categories/")
-    dataset_files = get_recent_files()
+    # Get limit from env var (default: None = upload all)
+    limit_str = os.getenv("UPLOAD_RECENT_LIMIT")
+    limit = int(limit_str) if limit_str else None
+    dataset_files = get_recent_files(limit=limit)
     for dataset_file in dataset_files:
         basename = os.path.basename(dataset_file)
         date_part = basename.split('_')[-1].replace('.tif', '')

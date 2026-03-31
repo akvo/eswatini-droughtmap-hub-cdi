@@ -27,7 +27,15 @@ def get_dataset_between(start, end):
 
 
 def main():
-    dataset_files = get_dataset_between("202201", "202501")
+    # Get all CDI files without date range restriction
+    dataset_files = []
+    if not os.path.exists(dataset_path):
+        print("Dataset path does not exist.")
+        return
+    for root, _, files in os.walk(dataset_path):
+        for file in files:
+            if file.endswith(dataset_type):
+                dataset_files.append(os.path.join(root, file))
     try:
         categories = get_categories(f"{geonode_url}api/categories/")
         for dataset_file in dataset_files:

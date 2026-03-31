@@ -72,6 +72,17 @@ To execute the script manually, run the following command:
 ./src/background-job/job.sh
 ```
 
+### Upload Behavior
+
+By default, the script uploads **all** GeoTiff files to GeoNode. To upload only the most recent files per category:
+
+```bash
+# Upload only 5 most recent files per category (SPI, CDI, NDVI, LST)
+UPLOAD_RECENT_LIMIT=5 ./src/background-job/job.sh
+```
+
+You can also set `UPLOAD_RECENT_LIMIT` in your `.env` file to make it persistent.
+
 ### Notes:
 - Ensure the `.env` file is properly configured before running the script.
 - The script should ideally be executed on a monthly basis to keep the data updated.
@@ -96,6 +107,7 @@ The script relies on the following environment variables, which must be defined 
 | `GEONODE_URL`               | Base URL of the GeoNode instance where processed data will be uploaded.                      | `https://yourgeonodeinstance.com`            |
 | `GEONODE_USERNAME`          | Username or email for authenticating with the GeoNode instance.                              | `yourgeonodeusernameoremail`                 |
 | `GEONODE_PASSWORD`          | Password for authenticating with the GeoNode instance.                                       | `yourgeonodepassword`                        |
+| `UPLOAD_RECENT_LIMIT`       | (Optional) Number of most recent files to upload per category. If not set, uploads all files. | `5` (uploads 5 most recent), or omit for all |
 
 ---
 
