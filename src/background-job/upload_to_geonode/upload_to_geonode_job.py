@@ -101,8 +101,13 @@ def get_recent_files(limit=None):
                 file_path = os.path.join(root, file)
                 dataset_files.append((file_path, os.path.getmtime(file_path)))
 
-    # Sort files by modification time (newest first)
-    dataset_files.sort(key=lambda x: x[1], reverse=True)
+    # Sort files by category (alphabetically) then by modification time (newest first)
+    # Categories: CDI, LST, NDVI, SM, SPI
+    def sort_key(item):
+        path, mtime = item
+        category = path.split('/')[-2]  # Get category from path
+        return (category, -mtime)  # Sort by category name, then negative mtime for newest first
+    dataset_files.sort(key=sort_key)
 
     # Extract file paths, limited to `limit` if provided
     if limit:
