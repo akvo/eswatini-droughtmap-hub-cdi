@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 
 geonode_url = os.getenv("GEONODE_URL")
@@ -144,6 +145,7 @@ def tracking_upload_progress(
     categories: object,
     date_created: str = None
 ):
+    """Track upload progress and update metadata when complete."""
     if not execution_id:
         return
     api_url = f"{geonode_url}api/v2/executionrequest/{execution_id}"
@@ -177,26 +179,54 @@ def tracking_upload_progress(
         return None
 
 
+def process_batch(batch, categories):
+    """Process a batch of dataset files."""
+    for dataset_file in batch:
+        try:
+            basename = os.path.basename(dataset_file)
+            date_part = basename.split('_')[-1].replace('.tif', '')
+            date_created = f"{date_part[:4]}-{date_part[4:6]}-01"
+
+            print(f"Uploading {basename} to GeoNode...")
+            execution_id = upload_to_geonode(dataset_file)
+            taxonomy = dataset_file.split('/')[-2]
+            tracking_upload_progress(
+                execution_id=execution_id,
+                taxonomy=taxonomy.lower(),
+                categories=categories,
+                date_created=date_created
+            )
+        except Exception as e:
+            print(f"Error uploading {dataset_file}: {e}")
+            continue
+
+
 def main():
+    BATCH_SIZE = 5
+    BATCH_DELAY_SECONDS = 60
+
     categories = get_categories(f"{geonode_url}api/categories/")
     # Get limit from env var (default: None = upload all)
     limit_str = os.getenv("UPLOAD_RECENT_LIMIT")
     limit = int(limit_str) if limit_str else None
     dataset_files = get_recent_files(limit=limit)
-    for dataset_file in dataset_files:
-        basename = os.path.basename(dataset_file)
-        date_part = basename.split('_')[-1].replace('.tif', '')
-        date_created = f"{date_part[:4]}-{date_part[4:6]}-01"
 
-        print(f"Uploading {basename} to GeoNode...")
-        execution_id = upload_to_geonode(dataset_file)
-        taxonomy = dataset_file.split('/')[-2]
-        tracking_upload_progress(
-            execution_id=execution_id,
-            taxonomy=taxonomy.lower(),
-            categories=categories,
-            date_created=date_created
-        )
+    total_files = len(dataset_files)
+    total_batches = (total_files + BATCH_SIZE - 1) // BATCH_SIZE
+
+    for i in range(0, total_files, BATCH_SIZE):
+        batch_num = (i // BATCH_SIZE) + 1
+        batch = dataset_files[i:i + BATCH_SIZE]
+
+        print(f"\n=== Processing batch {batch_num}/{total_batches} ({len(batch)} files) ===")
+        process_batch(batch, categories)
+
+        # Add delay between batches (but not after the last batch)
+        if i + BATCH_SIZE < total_files:
+            print(f"\nWaiting {BATCH_DELAY_SECONDS} seconds before next batch...")
+            time.sleep(BATCH_DELAY_SECONDS)
+
+    print("\n=== All batches completed ===")
 
 
 if __name__ == '__main__':
