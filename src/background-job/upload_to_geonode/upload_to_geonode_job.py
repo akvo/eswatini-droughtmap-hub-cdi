@@ -9,7 +9,7 @@ password = os.getenv("GEONODE_PASSWORD")
 dataset_path = "../../output_data/GeoTiffs"
 dataset_type = ".tif"
 
-VERIFY = False
+VERIFY = True
 
 
 def get_categories(api_url, file_name="geonode_category.json"):
