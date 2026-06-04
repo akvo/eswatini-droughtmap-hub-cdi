@@ -65,7 +65,7 @@ def main():
                 dataset_files.append(os.path.join(root, file))
 
     try:
-        categories = get_categories(f"{geonode_url}api/categories/")
+        categories = get_categories(f"{geonode_url}/api/categories/")
 
         total_files = len(dataset_files)
         total_batches = (total_files + BATCH_SIZE - 1) // BATCH_SIZE
