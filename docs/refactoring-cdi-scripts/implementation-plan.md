@@ -152,11 +152,14 @@ self.__ranking_files = {
 - Change `parameters` list (line 171): `["cdi", "lst", "ndvi", "spi", "sm"]` → `["cdi", "esi", "evi2", "spi", "sm"]`
 - Update `input_files` dict: new `STEP_0100_*` filenames, keys `esi`/`evi2`
 - Update working dir lookups: `LST` → `ESI`, `NDVI` → `EVI2`
+- Fix stale `default="updates"` in `ArgumentParser` → `default="recent"` (the old string was left over from the pre-NDMC pipeline and would confuse manual invocation)
+- Mode behaviour is unchanged: `mode == 'all'` exports every time slice; any other value (including `"recent"`) exports only the latest CDI month (1 GeoTiff per dataset)
 
 ### 3.4 Update `STEP_0000_execute_all_steps.py`
 - Remove 6 imports: step_0101–0103, step_0201–0203
 - Add: `from STEP_0100_ingest_ndmc_geotiffs import main as step_0100`
 - In `main()`, replace 6 `log_time` calls with: `log_time("Step 0100", step_0100, args)`
+- Fix stale `default="updates"` in `ArgumentParser` → `default="recent"`
 
 ### 3.4b Rewrite STEP_0302 to rank by calendar month (FR-17)
 Replace the `for index in range(0, 12)` + `index + 12` positional logic with a
@@ -258,8 +261,13 @@ ds.close()
 "
 
 # Verify GeoTiff output
+# --mode=recent → STEP_0303 exports only the latest CDI month (1 file per dataset)
 ls ../../output_data/GeoTiffs/CDI/
 ls ../../output_data/GeoTiffs/ESI/
+
+# --mode=all → STEP_0303 exports every month (N files per dataset)
+python -u STEP_0000_execute_all_steps.py --mode=all
+ls ../../output_data/GeoTiffs/CDI/ | wc -l   # should match number of common CDI months
 ```
 
 ### After Phase 4 (upload validation)

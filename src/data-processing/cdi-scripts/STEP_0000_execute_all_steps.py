@@ -49,7 +49,7 @@ def main(args):
 if __name__ == '__main__':
     # set up the command line argument parser
     parser = ArgumentParser()
-    parser.add_argument("-m", "--mode", default="updates",
-                        help="The mode of the current processing: updates or all. Default is updates")
+    parser.add_argument("-m", "--mode", default="recent",
+                        help="Processing mode: 'recent' (last 24 months) or 'all' (full history). Default is recent")
     # execute the programs with the supplied options
     main(parser.parse_args())

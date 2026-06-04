@@ -42,6 +42,17 @@ MODE=${1:-recent}   # "recent" = last 2 years; "all" = full history 2012–2026
 - Pass `MODE` to `check_and_create_download_log_ndmc()` to control year range
 - Pass `--mode=$MODE` to `STEP_0000_execute_all_steps.py`
 
+Mode effect at each layer:
+
+| Layer | `recent` | `all` |
+|-------|----------|-------|
+| Bash download | last 2 calendar years from NDMC | 2012–present |
+| STEP_0100 (ingest) | last 24 months from `input_data/` | all files in `input_data/` |
+| STEP_0301/0302 | process whatever STEP_0100 wrote | same — no mode logic |
+| STEP_0303 (export) | export **latest month only** (1 GeoTiff/dataset) | export **every month** (N GeoTiffs/dataset) |
+
+Default argument in `STEP_0000_execute_all_steps.py` and `STEP_0303_export_ranking_data_rasters.py` is `"recent"`. The stale `"updates"` default from the old pipeline has been removed.
+
 ### FR-6: Update `env.example` with new env vars
 ```bash
 DOWNLOAD_NDMC_BASE_URL="https://droughtcenter.unl.edu/Outgoing/Regional_Percentiles/Southern_Africa"
@@ -182,8 +193,8 @@ Re-running `job.sh` skips files already present in `input_data/`. Partial downlo
 Log file naming convention `all-{NAME}_URLS.log` preserved for consistency with existing monitoring.
 
 ### NFR-4: Two-mode operation
-- `./src/background-job/job.sh recent` — last 24 months, for post-refactor validation
-- `./src/background-job/job.sh all` — full 2012–2026, for VM production deployment
+- `./src/background-job/job.sh recent` — downloads last 2 years, processes last 24 months, exports latest month only. For post-refactor validation.
+- `./src/background-job/job.sh all` — downloads full history (SPI from 2023), processes everything, exports one GeoTiff per month. For VM production deployment.
 
 ### NFR-5: NetCDF intermediate required
 STEP_0301, STEP_0302, STEP_0303 all operate on time-series NetCDF files. STEP_0100 must write NetCDF output; it cannot be skipped.

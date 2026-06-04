@@ -180,7 +180,7 @@ def main(args):
 if __name__ == '__main__':
     # set up the command line argument parser
     parser = ArgumentParser()
-    parser.add_argument("-m", "--mode", default="updates",
-                        help="The times to export: latest or all. Default is updates")
+    parser.add_argument("-m", "--mode", default="recent",
+                        help="Export mode: 'recent' (latest month only) or 'all'. Default is recent")
     # execute the program with the supplied option
     main(parser.parse_args())

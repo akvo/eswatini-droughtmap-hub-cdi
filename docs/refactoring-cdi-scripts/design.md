@@ -116,10 +116,14 @@ def main(args):
 
 **Reason**: The two operations are tightly coupled — it makes no sense to download `all` 14 years of data and then only process the last 2, or vice versa.
 
-| Mode | Download | CDI Processing |
-|------|----------|----------------|
-| `recent` (default) | Last 2 years from NDMC | `--mode=recent` → process last 24 months |
-| `all` | Full 2012–2026 history | `--mode=all` → process full history |
+| Layer | `recent` (default) | `all` |
+|-------|-------------------|-------|
+| Bash download | Last 2 calendar years from NDMC | Full history (SPI from 2023) |
+| STEP_0100 ingest | Last 24 months from `input_data/` | All files in `input_data/` |
+| STEP_0301/0302 | Process whatever STEP_0100 wrote | Same — no mode logic |
+| STEP_0303 export | **Latest month only** (1 GeoTiff per dataset) | **Every month** (N GeoTiffs per dataset) |
+
+Running `job.sh recent` therefore produces a single GeoTiff per dataset (the most recent CDI month). Running `job.sh all` produces the full historical archive.
 
 ---
 
