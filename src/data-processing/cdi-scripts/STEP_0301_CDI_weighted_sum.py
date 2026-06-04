@@ -19,10 +19,10 @@ class CompositeDroughtIndicator:
         self.__cdi_weights = self.__config.get('cdi_parameters', 'weights')
         self.__parameter_names = self.__config.get('cdi_parameters', 'names')
         self.__ranking_files = {
-            "lst": os.path.join(self.__output_dir, "STEP_0201_LST_anomaly_pct_rank_{}.nc".format(self.__region)),
-            "ndvi": os.path.join(self.__output_dir, "STEP_0202_NDVI_anomaly_pct_rank_{}.nc".format(self.__region)),
-            "spi": os.path.join(self.__output_dir, "STEP_0203_SPI_anomaly_pct_rank_{}.nc".format(self.__region)),
-            "sm": os.path.join(self.__output_dir, "STEP_0204_SM_pct_rank_{}.nc".format(self.__region))
+            "esi": os.path.join(self.__output_dir, "STEP_0100_ESI_pct_rank_{}.nc".format(self.__region)),
+            "evi2": os.path.join(self.__output_dir, "STEP_0100_EVI2_pct_rank_{}.nc".format(self.__region)),
+            "spi": os.path.join(self.__output_dir, "STEP_0100_SPI_pct_rank_{}.nc".format(self.__region)),
+            "sm": os.path.join(self.__output_dir, "STEP_0100_SM_pct_rank_{}.nc".format(self.__region))
         }
         self.__cdi_inputs = []
         self.__datasets = {}
@@ -48,7 +48,9 @@ class CompositeDroughtIndicator:
         total_weight = 0
         for param in self.__cdi_weights:
             total_weight += self.__cdi_weights[param]
-        if total_weight != 1.0:
+        # Use a tolerance: floating-point sums such as 0.3+0.3+0.3+0.1 do not
+        # land exactly on 1.0, so an equality check would reject valid configs.
+        if abs(total_weight - 1.0) > 1e-6:
             print("Total CDI weight is not equal to 1.0.\nPlease adjust the weights in the configuration to total 1.0")
             sys.exit(1)
 

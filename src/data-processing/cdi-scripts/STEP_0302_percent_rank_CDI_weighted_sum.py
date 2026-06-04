@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
+from datetime import date, timedelta
 from libs.config_reader import ConfigParser
 from libs.statistics_operations import StatisticOperations
 import libs.netcdf_functions as netcdf
 # import numpy as np
+
+# Origin for the NetCDF "days since" time axis (matches the rest of the pipeline).
+ORIGIN_DATE = date(1900, 1, 1)
 
 
 class CompositeDroughtIndicatorRanking:
@@ -53,28 +57,43 @@ class CompositeDroughtIndicatorRanking:
             if output_data_set is not None:
                 output_data_set.close()
 
-    def rank_parameter(self, index):
+    def __group_by_calendar_month(self):
+        """
+        Group time-step indices by their TRUE calendar month (1-12), derived from
+        the NetCDF time value (days since 1900-01-01). This is robust to gaps in the
+        series: the NDMC vegetation inputs are permanently missing some months, so
+        the CDI series is not a contiguous monthly run. Positional (index + 12)
+        arithmetic would compare the wrong months together — grouping by the real
+        calendar month ranks each month only against the same month in other years.
+
+        Returns:
+            dict mapping calendar month (int) -> list of time indices
+        """
+        groups = {}
+        for idx, t in enumerate(self.__times):
+            month = (ORIGIN_DATE + timedelta(days=int(t))).month
+            groups.setdefault(month, []).append(idx)
+        return groups
+
+    def rank_all_months(self):
+        """
+        Percent-rank the CDI weighted sum within each calendar month across all years
+        present for that month, writing each ranked slice back to its time index.
+        """
         output_data_set = None
         try:
-            # determine the number of years for the month #
-            years = int(self.__number_of_months / 12)
-            if index < (self.__number_of_months % 12):
-                years += 1
-            # load the data for the current month #
-            data = []
-            t = index  # set the input time to the starting index
-            for y in range(0, years):
-                data.append(netcdf.extract_data(self.__input_data_set, 'cdi_weighted_sum', t))
-                t += 12  # increment by 1 year
-            # rank the data by year #
-            ranked_data = self.__stats.rank_parameter(data)
-            # open file for appending #
             output_data_set = netcdf.open_dataset(self.__output_file, 'a')
-            # loop thru the years and set the data to the correct time index #
-            t = index
-            for y in range(0, len(ranked_data)):
-                output_data_set.variables['cdi_wt_sum_pr'][t] = ranked_data[y]
-                t += 12
+            for month, indices in self.__group_by_calendar_month().items():
+                # load every year's slice for this calendar month #
+                data = [
+                    netcdf.extract_data(self.__input_data_set, 'cdi_weighted_sum', i)
+                    for i in indices
+                ]
+                # rank the slices against each other (0.0 - 1.0) #
+                ranked_data = self.__stats.rank_parameter(data)
+                # write each ranked slice back to its original time index #
+                for k, i in enumerate(indices):
+                    output_data_set.variables['cdi_wt_sum_pr'][i] = ranked_data[k]
         except IOError:
             raise
         except Exception:
@@ -90,10 +109,9 @@ def main():
     """
     # initialize a new CDI Ranking class #
     rankings = CompositeDroughtIndicatorRanking()
-    # loop thru the months and rank the CDI values #
+    # rank the CDI values within each calendar month across years #
     print("Ranking CDI weighted sum data...")
-    for index in range(0, 12):
-        rankings.rank_parameter(index)
+    rankings.rank_all_months()
 
 
 if __name__ == '__main__':
