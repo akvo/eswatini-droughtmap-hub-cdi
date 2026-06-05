@@ -42,9 +42,9 @@ Before running the script, ensure the following prerequisites are met:
    sudo apt-get install wget curl
    # pup (HTML parser): https://github.com/ericchiang/pup
    ```
-3. **Python virtual environment** at `~/.myenv` with packages from `src/data-processing/cdi-scripts/requirements.txt`:
+3. **Python virtual environment** with packages from `src/data-processing/cdi-scripts/requirements.txt`. The default location is `~/.myenv`, but you can point at any path via the `PYTHON_VENV` env var (see [Environment Variables](#environment-variables)). If no venv is found, the system `python3` is used as a fallback.
    ```bash
-   python3 -m venv ~/.myenv
+   python3 -m venv ~/.myenv          # or any path; set PYTHON_VENV to match
    source ~/.myenv/bin/activate
    pip install -r src/data-processing/cdi-scripts/requirements.txt
    ```
@@ -83,6 +83,7 @@ Before running the script, ensure the following prerequisites are met:
    pip install -r src/data-processing/cdi-scripts/requirements.txt
    deactivate
    ```
+   If your venv lives elsewhere, set `PYTHON_VENV` in `.env` to its absolute path. The pipeline activates that venv when present and otherwise falls back to the system `python3`.
 
 ---
 
@@ -133,6 +134,7 @@ The script relies on the following environment variables, which must be defined 
 | `GEONODE_USERNAME`          | Username or email for authenticating with the GeoNode instance.                              | `yourgeonodeusernameoremail`                 |
 | `GEONODE_PASSWORD`          | Password for authenticating with the GeoNode instance.                                       | `yourgeonodepassword`                        |
 | `UPLOAD_RECENT_LIMIT`       | (Optional) Number of most recent files to upload per category. If not set, uploads all files. | `5` (uploads 5 most recent), or omit for all |
+| `PYTHON_VENV`               | (Optional) Absolute path to the Python virtual environment for the CDI/upload scripts. Defaults to `~/.myenv`. Must be absolute (no `$HOME`/`~`). Falls back to system `python3` if missing. | `/home/akvo-app/.myenv` |
 
 ---
 

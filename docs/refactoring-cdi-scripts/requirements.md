@@ -60,8 +60,20 @@ DOWNLOAD_ESI_DATASET="era5_esi_1mn"
 DOWNLOAD_EVI2_DATASET="evi2_1mn"
 DOWNLOAD_SPI_DATASET="chirps_spi_3mn"
 DOWNLOAD_SM_DATASET="noah_soilm_1mn"
+# (Optional) absolute path to the Python venv; defaults to ~/.myenv, falls back
+# to system python3 if absent. Must be absolute ($HOME is not expanded from .env).
+# PYTHON_VENV="/home/akvo-app/.myenv"
 # Removed: EARTHDATA_*, DOWNLOAD_CHIRPS_*, DOWNLOAD_LST_*, DOWNLOAD_NDVI_*, DOWNLOAD_SM_BASE_URL, DOWNLOAD_SM_PATTERN
 ```
+
+### FR-6b: Make the Python virtual environment configurable
+The hardcoded `source ~/.myenv/bin/activate` failed on the production VM (no
+`~/.myenv`, and `python` is not installed — only `python3`). Add helpers to
+`utils.sh` and use them from `job_03_run_cdi.sh` and `job_04_upload_to_geonode.sh`:
+- `activate_python_env` — activates `${PYTHON_VENV:-$HOME/.myenv}` only if its
+  `bin/activate` exists; otherwise warns and continues with system Python.
+- `python_bin` — resolves `python`, else `python3` (the VM has only `python3`).
+- `deactivate_python_env` — calls `deactivate` only if it is defined.
 
 ### FR-7: Update `input_data/` directory structure
 - Create: `input_data/ESI/`, `input_data/EVI2/`, `input_data/SPI/`

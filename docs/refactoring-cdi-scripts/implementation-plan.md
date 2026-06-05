@@ -86,16 +86,27 @@ check_and_download_SM_dataset()    # calls check_and_create_download_log_ndmc ..
 - Pass `$MODE` to `check_and_create_download_log_ndmc` calls
 - Pass `--mode=$MODE` to CDI script in `job_03_run_cdi.sh`
 
-### 2.6 Update `job_03_run_cdi.sh`
-Accept and forward `$MODE`:
+### 2.6 Update `job_03_run_cdi.sh` and `job_04_upload_to_geonode.sh`
+Accept and forward `$MODE`, and use the configurable-venv helpers (FR-6b) instead
+of a hardcoded `source ~/.myenv/bin/activate` + bare `python`:
 ```bash
 run_cdi_scripts() {
     local MODE=${1:-recent}
-    source ~/.myenv/bin/activate
-    python -u ../data-processing/cdi-scripts/STEP_0000_execute_all_steps.py --mode=$MODE
-    ...
+    activate_python_env                 # activates $PYTHON_VENV / ~/.myenv if present
+    local PY; PY=$(python_bin) || { echo "no Python interpreter"; exit 1; }
+    if ! "${PY}" -u ../data-processing/cdi-scripts/STEP_0000_execute_all_steps.py --mode="${MODE}"; then
+        echo "CDI script execution failed!"; deactivate_python_env; exit 1
+    fi
+    deactivate_python_env
 }
 ```
+`job_04_upload_to_geonode.sh` gets the same `activate_python_env` / `python_bin` /
+`deactivate_python_env` treatment for both upload functions.
+
+### 2.6b Add Python-env helpers to `utils.sh` (FR-6b)
+`activate_python_env`, `python_bin`, `deactivate_python_env` — see requirements.md.
+Fixes the production failure where `~/.myenv` did not exist and `python` (only
+`python3`) was missing.
 
 ### 2.7 Delete files
 ```bash

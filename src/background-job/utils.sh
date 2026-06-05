@@ -1,5 +1,42 @@
 #!/bin/bash
 
+# --- Python environment helpers ---------------------------------------------
+# Activate a Python virtual environment if one is configured and present.
+# The path comes from the PYTHON_VENV env var (set it in .env), falling back to
+# ~/.myenv for backward compatibility. If no venv is found, the system Python is
+# used instead (with a warning) rather than the pipeline hard-failing.
+activate_python_env() {
+    local venv_path="${PYTHON_VENV:-$HOME/.myenv}"
+    if [ -f "${venv_path}/bin/activate" ]; then
+        echo "Activating Python virtual environment: ${venv_path}"
+        # shellcheck disable=SC1090
+        source "${venv_path}/bin/activate"
+    else
+        echo "No virtual environment found at ${venv_path}; using system Python."
+        echo "(set PYTHON_VENV in .env to point at your virtual environment)"
+    fi
+}
+
+# Deactivate the virtual environment if one is currently active.
+deactivate_python_env() {
+    if command -v deactivate >/dev/null 2>&1; then
+        deactivate
+    fi
+}
+
+# Echo a usable Python interpreter: prefer 'python' (present inside an active
+# venv), otherwise fall back to 'python3'. Returns non-zero if neither exists.
+python_bin() {
+    if command -v python >/dev/null 2>&1; then
+        echo "python"
+    elif command -v python3 >/dev/null 2>&1; then
+        echo "python3"
+    else
+        echo "Error: neither 'python' nor 'python3' found on PATH." >&2
+        return 1
+    fi
+}
+
 download_file() {
     local TARGET_DIR=$1
     local BASE_URL=$2

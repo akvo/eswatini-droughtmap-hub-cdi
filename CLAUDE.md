@@ -150,7 +150,7 @@ logs/                                          — URL download logs (all-{NAME}
 ## Key Conventions
 
 - All shell scripts source `.env` from repo root via `export $(grep -v '^#' "$root_path/.env" | xargs)`.
-- Python scripts run inside `~/.myenv`; activated/deactivated by the calling shell scripts.
+- Python scripts run inside a virtualenv activated by `activate_python_env` in `utils.sh`. The path is `$PYTHON_VENV` (set in `.env`) or `~/.myenv` by default; if absent, the system `python3` is used. `python_bin` resolves `python` or `python3`.
 - Download logs track which remote files exist; comparison against the local directory determines what needs downloading.
 - Batch downloads of missing files run 10 concurrent `wget` subshells with a 30s pause between batches.
 - `VERIFY = True` in Python upload scripts — SSL verification must remain enabled.
