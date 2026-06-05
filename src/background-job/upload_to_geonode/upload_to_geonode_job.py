@@ -22,8 +22,9 @@ def get_categories(api_url, file_name="geonode_category.json"):
         selected_categories = [
             "cdi-raster-map",
             "spi-raster-map",
-            "ndvi-raster-map",
-            "lst-raster-map"
+            "evi2-raster-map",  # was ndvi-raster-map
+            "esi-raster-map",   # was lst-raster-map
+            "sm-raster-map"     # SM now has weight > 0 and is exported
         ]
         categories = response.json().get("objects")
         categories = list(filter(
@@ -56,7 +57,7 @@ def write_failure_message(response):
 
 
 def upload_to_geonode(base_file_path, xml_file_path=None, sld_file_path=None):
-    api_url = f"{geonode_url}api/v2/uploads/upload?format=json"
+    api_url = f"{geonode_url}/api/v2/uploads/upload?format=json"
     files = {
         "base_file": open(base_file_path, "rb"),
     }
@@ -103,7 +104,7 @@ def get_recent_files(limit=None):
                 dataset_files.append((file_path, os.path.getmtime(file_path)))
 
     # Sort files by category (alphabetically) then by modification time (newest first)
-    # Categories: CDI, LST, NDVI, SM, SPI
+    # Categories: CDI, ESI, EVI2, SM, SPI
     def sort_key(item):
         path, mtime = item
         category = path.split('/')[-2]  # Get category from path
@@ -126,7 +127,7 @@ def get_recent_files(limit=None):
 
 
 def update_dataset_metadata(dataset_id, metadata):
-    api_url = f"{geonode_url}api/v2/datasets/{dataset_id}"
+    api_url = f"{geonode_url}/api/v2/datasets/{dataset_id}"
     response = requests.patch(
         api_url,
         auth=(username, password),
@@ -148,7 +149,7 @@ def tracking_upload_progress(
     """Track upload progress and update metadata when complete."""
     if not execution_id:
         return
-    api_url = f"{geonode_url}api/v2/executionrequest/{execution_id}"
+    api_url = f"{geonode_url}/api/v2/executionrequest/{execution_id}"
     response = requests.get(api_url, auth=(username, password), verify=VERIFY)
     if response.status_code == 200:
         json_response = response.json()["request"]
@@ -205,7 +206,7 @@ def main():
     BATCH_SIZE = 5
     BATCH_DELAY_SECONDS = 60
 
-    categories = get_categories(f"{geonode_url}api/categories/")
+    categories = get_categories(f"{geonode_url}/api/categories/")
     # Get limit from env var (default: None = upload all)
     limit_str = os.getenv("UPLOAD_RECENT_LIMIT")
     limit = int(limit_str) if limit_str else None

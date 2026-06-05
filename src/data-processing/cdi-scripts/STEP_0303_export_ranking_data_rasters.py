@@ -64,10 +64,10 @@ class NetCDFtoTIFF:
         input_data_set = None
         # define the available file names for the sources #
         input_files = {
-            "lst": os.path.join(self.__output_dir, "STEP_0201_LST_anomaly_pct_rank_{}.nc".format(self.__region)),
-            "ndvi": os.path.join(self.__output_dir, "STEP_0202_NDVI_anomaly_pct_rank_{}.nc".format(self.__region)),
-            "spi": os.path.join(self.__output_dir, "STEP_0203_SPI_anomaly_pct_rank_{}.nc".format(self.__region)),
-            "sm": os.path.join(self.__output_dir, "STEP_0204_SM_pct_rank_{}.nc".format(self.__region)),
+            "esi": os.path.join(self.__output_dir, "STEP_0100_ESI_pct_rank_{}.nc".format(self.__region)),
+            "evi2": os.path.join(self.__output_dir, "STEP_0100_EVI2_pct_rank_{}.nc".format(self.__region)),
+            "spi": os.path.join(self.__output_dir, "STEP_0100_SPI_pct_rank_{}.nc".format(self.__region)),
+            "sm": os.path.join(self.__output_dir, "STEP_0100_SM_pct_rank_{}.nc".format(self.__region)),
             "cdi": os.path.join(self.__output_dir, "STEP_0302_CDI_pct_rank_{}.nc".format(self.__region))
         }
         # define the NetCDF parameter names for each source #
@@ -168,7 +168,7 @@ def main(args):
     """
     mode = str(args.mode)
     # set the list of parameters to convert: cdi must be first #
-    parameters = ["cdi", "lst", "ndvi", "spi", "sm"]
+    parameters = ["cdi", "esi", "evi2", "spi", "sm"]
     cdi_date = None
     for p in parameters:
         # initialize a new TIFF export class #
@@ -180,7 +180,7 @@ def main(args):
 if __name__ == '__main__':
     # set up the command line argument parser
     parser = ArgumentParser()
-    parser.add_argument("-m", "--mode", default="updates",
-                        help="The times to export: latest or all. Default is updates")
+    parser.add_argument("-m", "--mode", default="recent",
+                        help="Export mode: 'recent' (latest month only) or 'all'. Default is recent")
     # execute the program with the supplied option
     main(parser.parse_args())

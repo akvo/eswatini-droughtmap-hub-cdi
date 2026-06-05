@@ -1,17 +1,54 @@
 #!/bin/bash
 
+# --- Python environment helpers ---------------------------------------------
+# Activate a Python virtual environment if one is configured and present.
+# The path comes from the PYTHON_VENV env var (set it in .env), falling back to
+# ~/.myenv for backward compatibility. If no venv is found, the system Python is
+# used instead (with a warning) rather than the pipeline hard-failing.
+activate_python_env() {
+    local venv_path="${PYTHON_VENV:-$HOME/.myenv}"
+    if [ -f "${venv_path}/bin/activate" ]; then
+        echo "Activating Python virtual environment: ${venv_path}"
+        # shellcheck disable=SC1090
+        source "${venv_path}/bin/activate"
+    else
+        echo "No virtual environment found at ${venv_path}; using system Python."
+        echo "(set PYTHON_VENV in .env to point at your virtual environment)"
+    fi
+}
+
+# Deactivate the virtual environment if one is currently active.
+deactivate_python_env() {
+    if command -v deactivate >/dev/null 2>&1; then
+        deactivate
+    fi
+}
+
+# Echo a usable Python interpreter: prefer 'python' (present inside an active
+# venv), otherwise fall back to 'python3'. Returns non-zero if neither exists.
+python_bin() {
+    if command -v python >/dev/null 2>&1; then
+        echo "python"
+    elif command -v python3 >/dev/null 2>&1; then
+        echo "python3"
+    else
+        echo "Error: neither 'python' nor 'python3' found on PATH." >&2
+        return 1
+    fi
+}
+
 download_file() {
     local TARGET_DIR=$1
     local BASE_URL=$2
     local GES_FILE=$3
 
-    wget --load-cookies ./.urs_cookies \
-        --keep-session-cookies --user="${EARTHDATA_USERNAME}" \
-        --content-disposition --content-disposition -r -c -nH -nd -np -A ".nc4" \
-        -P "${TARGET_DIR}" "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp" >/dev/null 2>&1
+    # NDMC endpoint is public HTTP — no authentication required.
+    # Download a single file to a .tmp path, then promote on success.
+    wget -c "${BASE_URL}/${GES_FILE}" -O "${TARGET_DIR}/${GES_FILE}.tmp" >/dev/null 2>&1
 
     if [ $? -ne 0 ]; then
         echo "Download failed: ${BASE_URL}/${GES_FILE}. Exiting."
+        rm -f "${TARGET_DIR}/${GES_FILE}.tmp"
         exit 1
     fi
 
@@ -263,20 +300,81 @@ check_and_create_download_log() {
     fi
 }
 
-# Clean up the output data directory and working_data directory
-# Remove all *.nc in ./output_data
+# Build the download log for an NDMC Regional Percentiles dataset and fetch any
+# missing files. NDMC layout is a 2-level tree: {BASE_URL}/{DATASET}/{YYYY}/{file}.tif
+# where files are named {DATASET}_{YYYY}-{MM}-01.tif. No authentication required.
+#   MODE=recent (default): only the last 2 years
+#   MODE=all            : full history from 2012 to the current year
+check_and_create_download_log_ndmc() {
+    local BASE_URL=$1
+    local DATASET=$2
+    local NAME=$3
+    local MODE=${4:-recent}
+    local LOG_NAME="all-${NAME}_URLS.log"
+    local dataset_url="${BASE_URL}/${DATASET}"
+
+    remove_tmp_files "../../input_data/${NAME}"
+
+    echo "Building NDMC download log for ${NAME} (${DATASET}), mode=${MODE}"
+
+    # Make sure the dataset URL is accessible before traversing year subdirs
+    response_code=$(curl -s -o /dev/null -w "%{http_code}" "${dataset_url}/")
+    if [ "$response_code" -ne 200 ]; then
+        echo "Error: Unable to access ${dataset_url}/. Response code: ${response_code}"
+        echo "Exiting script"
+        exit 1
+    fi
+
+    # Determine the year range to traverse
+    local current_year
+    current_year=$(date +%Y)
+    local years=()
+    if [ "${MODE}" == "all" ]; then
+        for ((y = 2012; y <= current_year; y++)); do
+            years+=("$y")
+        done
+    else
+        years+=("$((current_year - 1))" "${current_year}")
+    fi
+
+    # Rebuild the URL log fresh each run so newly published months are picked up
+    : > "../../logs/${LOG_NAME}.tmp"
+    for YEAR in "${years[@]}"; do
+        local year_url="${dataset_url}/${YEAR}/"
+        # Skip years whose subdirectory does not exist yet
+        response_code=$(curl -s -o /dev/null -w "%{http_code}" "${year_url}")
+        if [ "$response_code" -ne 200 ]; then
+            echo "  ${NAME} ${YEAR}: no directory (HTTP ${response_code}), skipping"
+            continue
+        fi
+        # Collect .tif files matching {DATASET}_{YYYY}-{MM}-01.tif from the listing.
+        # NDMC serves IIS-style listings: <A HREF="/absolute/path/file.tif">. Match
+        # HREF case-insensitively and strip the path to the bare filename.
+        local tif_files
+        tif_files=$(curl -s "${year_url}" |
+            grep -oiP '(?<=HREF=")[^"]*\.tif' |
+            sed 's|.*/||' |
+            grep -E "^${DATASET}_${YEAR}-(0[1-9]|1[0-2])-01\.tif$")
+        for f in ${tif_files}; do
+            echo "${year_url}${f}" >> "../../logs/${LOG_NAME}.tmp"
+        done
+        sleep 1
+    done
+    mv "../../logs/${LOG_NAME}.tmp" "../../logs/${LOG_NAME}"
+
+    echo "Comparing existing data in ${NAME} directory to list saved to log"
+    validate_files "${NAME}"
+}
+
+# Clean up the output data directory
+# Remove all *.nc in ./output_data (STEP_0100 writes its NetCDF intermediates here)
 # Remove all *.tif for each subdirectory in ./output_data/GeoTiffs
-# Remove all *.nc in ./src/data-processing/cdi-scripts/working_data/LST
-# Remove all *.nc in ./src/data-processing/cdi-scripts/working_data/NDVI
-# Remove all *.nc in ./src/data-processing/cdi-scripts/working_data/SPI
+# STEP_0100 no longer uses the working_data/ scratch dirs that the old HDF pipeline did.
 
 cleanup_output_data() {
     echo "Cleaning up output data directory"
     find ../../output_data -type f -name "*.nc" -delete
     find ../../output_data/GeoTiffs -type f -name "*.tif" -delete
-    find ../../src/data-processing/cdi-scripts/working_data/LST -type f -name "*.nc" -delete
-    find ../../src/data-processing/cdi-scripts/working_data/NDVI -type f -name "*.nc" -delete
-    find ../../src/data-processing/cdi-scripts/working_data/SPI -type f -name "*.nc" -delete
 
     echo "Cleanup complete"
 }
