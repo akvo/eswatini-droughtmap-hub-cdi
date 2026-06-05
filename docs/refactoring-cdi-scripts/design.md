@@ -143,9 +143,32 @@ BASE = https://droughtcenter.unl.edu/Outgoing/Regional_Percentiles/Southern_Afri
 | `evi2_1mn` | Enhanced Vegetation Index 2, 1-month | Yes — replaces NDVI |
 | `chirps_spi_3mn` | SPI 3-month from CHIRPS | Yes — replaces computed SPI |
 | `noah_soilm_1mn` | NOAH Soil Moisture, 1-month | Yes — replaces FLDAS SM |
-| `chirps_spi_1mn` | SPI 1-month | Not used (CDI config uses 3-month) |
+| `chirps_spi_1mn` | SPI 1-month | Not used (see SPI period decision below) |
 | `era5_esi_3mn` | ESI 3-month | Not used |
 | `ndvi_1mn` | NDVI (legacy) | Not used (EVI2 is superior) |
+
+### Decision: use the 3-month SPI (`chirps_spi_3mn`), not 1-month
+
+This is a **like-for-like replacement**, not a new methodology choice:
+
+- `cdi_project_settings.conf` has `"spi_periods": [3]` — unchanged from before the
+  refactor (verified at commit `6e95f0d`).
+- The old locally-computed SPI variable was named **`spi_3_anom_pct_rank`** — the
+  "3" is the accumulation window. The SPI the CDI used has always been 3-month.
+
+Why 3-month is the right window regardless:
+- **1-month SPI** reflects only the latest month's rainfall anomaly — noisy, swings
+  sharply month to month.
+- **3-month SPI** captures the *cumulative seasonal* rainfall deficit (agricultural
+  / growing-season drought), the standard precipitation window for a combined
+  indicator.
+- The CDI already carries fast-responding terms (ESI evaporative stress, EVI2
+  vegetation); the precipitation term is meant to be the slower accumulation
+  signal, so 3-month complements rather than duplicates them.
+
+To switch to 1-month later (a methodology change requiring NDMC/NDMA validation):
+set `spi_periods` to `[1]` and `DOWNLOAD_SPI_DATASET="chirps_spi_1mn"`. Note the
+1-month product also starts 2023, so it would not extend history backward.
 
 **Data availability** (verified live against the endpoint, June 2026):
 
