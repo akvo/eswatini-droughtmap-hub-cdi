@@ -8,10 +8,11 @@ This repository contains the automation scripts for generating and updating drou
 2. [Prerequisites](#prerequisites)
 3. [Setup Instructions](#setup-instructions)
 4. [Running the Script](#running-the-script)
-5. [Environment Variables](#environment-variables)
-6. [Automation](#automation)
-7. [Contributing](#contributing)
-8. [License](#license)
+5. [Adjusting CDI Weights](#adjusting-cdi-weights)
+6. [Environment Variables](#environment-variables)
+7. [Automation](#automation)
+8. [Contributing](#contributing)
+9. [License](#license)
 
 ---
 
@@ -44,10 +45,16 @@ Before running the script, ensure the following prerequisites are met:
    ```
 3. **Python virtual environment** with packages from `src/data-processing/cdi-scripts/requirements.txt`. The default location is `~/.myenv`, but you can point at any path via the `PYTHON_VENV` env var (see [Environment Variables](#environment-variables)). If no venv is found, the system `python3` is used as a fallback.
    ```bash
+   sudo apt-get install -y python3-venv python3-full   # Debian/Ubuntu: required for venv
    python3 -m venv ~/.myenv          # or any path; set PYTHON_VENV to match
-   source ~/.myenv/bin/activate
+   source ~/.myenv/bin/activate      # MUST activate before pip install
    pip install -r src/data-processing/cdi-scripts/requirements.txt
+   deactivate
    ```
+   > On Debian 12 / Ubuntu 24.04, installing with the **system** `pip` fails with
+   > `error: externally-managed-environment` (PEP 668). This is expected — always
+   > install **inside** an activated venv as shown above. Do **not** use
+   > `pip install --break-system-packages`.
 4. **Environment configuration**: A `.env` file must be created with the necessary environment variables (see [Environment Variables](#environment-variables)).
 
 ---
@@ -72,7 +79,7 @@ Before running the script, ensure the following prerequisites are met:
 
 3. **Install system dependencies**:
    ```bash
-   sudo apt-get update && sudo apt-get install wget curl
+   sudo apt-get update && sudo apt-get install -y wget curl python3-venv python3-full
    # Install pup from https://github.com/ericchiang/pup/releases
    ```
 
@@ -117,6 +124,40 @@ You can also set `UPLOAD_RECENT_LIMIT` in your `.env` file to make it persistent
 ### Notes:
 - Ensure the `.env` file is properly configured before running the script.
 - The script should ideally be executed on a monthly basis to keep the data updated.
+
+---
+## Adjusting CDI Weights
+
+The CDI is a weighted sum of the four indices. Weights live in
+`src/data-processing/cdi-scripts/cdi_project_settings.conf` and **must sum to 1.0**.
+Use `change-weight.sh` rather than editing the JSON by hand — it also strips any
+stale `lst`/`ndvi` keys left over from the old pipeline (those would otherwise be
+summed by `STEP_0301` and push the total above 1.0, causing
+`Total CDI weight is not equal to 1.0`).
+
+```bash
+cd src/data-processing/cdi-scripts
+./change-weight.sh --esi_weight=0.3 --evi2_weight=0.3 --spi_weight=0.3 --sm_weight=0.1
+```
+
+- Flags map 1:1 to the indices: `--esi_weight`, `--evi2_weight`, `--spi_weight`, `--sm_weight`.
+- Defaults (if a flag is omitted): ESI 0.3, EVI2 0.3, SPI 0.3, SM 0.1.
+- Requires `jq` (`sudo apt-get install jq`).
+- The script prints a warning if the weights do not sum to 1.0.
+
+### Triggering from an external scheduler (e.g. Rundeck)
+
+The script flags were renamed during the NDMC migration (`--lst_weight` →
+`--esi_weight`, `--ndvi_weight` → `--evi2_weight`). Because ESI directly replaces
+LST and EVI2 replaces NDVI, you do **not** need to rename your existing job
+options — just feed the old option values into the new flags:
+
+```
+.../change-weight.sh --esi_weight=${option.lst_weight} --evi2_weight=${option.ndvi_weight} --spi_weight=${option.spi_weight} --sm_weight=${option.sm_weight}
+```
+
+`option.lst_weight` now supplies the **ESI** weight and `option.ndvi_weight` the
+**EVI2** weight.
 
 ---
 ## Environment Variables
