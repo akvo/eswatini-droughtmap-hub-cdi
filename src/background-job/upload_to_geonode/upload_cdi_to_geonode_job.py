@@ -52,7 +52,8 @@ def process_batch(batch, categories):
 
 def main():
     BATCH_SIZE = 5
-    BATCH_DELAY_SECONDS = 60
+    # See upload_to_geonode_job.main: polling replaces the blind batch sleep.
+    BATCH_DELAY_SECONDS = 5
 
     # Get all CDI files without date range restriction
     dataset_files = []

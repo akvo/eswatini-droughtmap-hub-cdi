@@ -109,6 +109,52 @@ def test_tracking_upload_progress(mock_requests):
     tracking_upload_progress("123")
 
 
+def test_tracking_upload_progress_polls_until_finished(mock_requests):
+    """A pending import is polled in a loop, not by recursing."""
+    _, mock_get, mock_patch = mock_requests
+
+    def response(status):
+        return mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "request": {
+                        "status": status,
+                        "output_params": {
+                            "resources": [{"id": "dataset_id"}]
+                        },
+                    }
+                }
+            ),
+        )
+
+    mock_get.side_effect = [
+        response("running"),
+        response("running"),
+        response("finished"),
+    ]
+    mock_patch.return_value = mock.Mock(status_code=200)
+
+    with mock.patch("time.sleep"):
+        tracking_upload_progress("123", interval=0)
+
+    assert mock_get.call_count == 3
+    assert mock_patch.call_count == 1
+
+
+def test_tracking_upload_progress_times_out(mock_requests):
+    """A never-finishing import raises instead of spinning forever."""
+    _, mock_get, _ = mock_requests
+    mock_get.return_value = mock.Mock(
+        status_code=200,
+        json=mock.Mock(return_value={"request": {"status": "running"}}),
+    )
+
+    with mock.patch("time.sleep"):
+        with pytest.raises(TimeoutError):
+            tracking_upload_progress("123", timeout=0.1, interval=0)
+
+
 def test_main(mock_open, mock_requests, monkeypatch):
     mock_post, mock_get, mock_patch = mock_requests
 

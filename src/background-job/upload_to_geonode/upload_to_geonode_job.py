@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import contextlib
 import requests
 
 geonode_url = os.getenv("GEONODE_URL")
@@ -10,6 +11,12 @@ dataset_path = "../../output_data/GeoTiffs"
 dataset_type = ".tif"
 
 VERIFY = True
+
+# Polling settings for tracking_upload_progress. The previous implementation
+# recursed without sleeping, which hammered GeoNode and blew the Python
+# recursion limit ("maximum recursion depth exceeded") on slow imports.
+POLL_INTERVAL_SECONDS = 5
+POLL_TIMEOUT_SECONDS = 600
 
 
 def get_categories(api_url, file_name="geonode_category.json"):
@@ -58,25 +65,28 @@ def write_failure_message(response):
 
 def upload_to_geonode(base_file_path, xml_file_path=None, sld_file_path=None):
     api_url = f"{geonode_url}/api/v2/uploads/upload?format=json"
-    files = {
-        "base_file": open(base_file_path, "rb"),
-    }
+    paths = {"base_file": base_file_path}
     if xml_file_path:
-        files["xml_file"] = open(xml_file_path, "rb")
+        paths["xml_file"] = xml_file_path
     if sld_file_path:
-        files["sld_file"] = open(sld_file_path, "rb")
+        paths["sld_file"] = sld_file_path
     data = {
         "store_spatial_files": False,
         "overwrite_existing_layer": True,
         "skip_existing_layers": False,
     }
-    response = requests.post(
-        api_url,
-        auth=(username, password),
-        files=files,
-        data=data,
-        verify=VERIFY,
-    )
+    with contextlib.ExitStack() as stack:
+        files = {
+            key: stack.enter_context(open(path, "rb"))
+            for key, path in paths.items()
+        }
+        response = requests.post(
+            api_url,
+            auth=(username, password),
+            files=files,
+            data=data,
+            verify=VERIFY,
+        )
     if response.status_code == 201:
         json_response = response.json()
         return json_response.get("execution_id")
@@ -142,42 +152,66 @@ def update_dataset_metadata(dataset_id, metadata):
 
 def tracking_upload_progress(
     execution_id: int,
-    taxonomy: str,
-    categories: object,
-    date_created: str = None
+    taxonomy: str = None,
+    categories: object = None,
+    date_created: str = None,
+    timeout: int = POLL_TIMEOUT_SECONDS,
+    interval: int = POLL_INTERVAL_SECONDS,
 ):
-    """Track upload progress and update metadata when complete."""
+    """Poll until the import finishes, then update the dataset metadata.
+
+    Args:
+        execution_id: GeoNode execution request id returned by the upload.
+        taxonomy: Dataset category key (cdi/esi/evi2/spi/sm).
+        categories: Mapping of taxonomy key to GeoNode category id.
+        date_created: Metadata date, formatted YYYY-MM-01.
+        timeout: Maximum seconds to wait for the import to finish.
+        interval: Seconds to sleep between polls.
+
+    Raises:
+        RuntimeError: When GeoNode reports the import as failed.
+        TimeoutError: When the import does not finish within `timeout`.
+    """
     if not execution_id:
         return
     api_url = f"{geonode_url}/api/v2/executionrequest/{execution_id}"
-    response = requests.get(api_url, auth=(username, password), verify=VERIFY)
-    if response.status_code == 200:
-        json_response = response.json()["request"]
-        if json_response["status"] == "failed":
-            error_message = json_response["output_params"]["errors"]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        response = requests.get(
+            api_url, auth=(username, password), verify=VERIFY
+        )
+        if response.status_code != 200:
+            write_failure_message(response)
+            return None
+
+        request_info = response.json()["request"]
+        status = request_info.get("status")
+
+        if status == "failed":
+            error_message = request_info["output_params"]["errors"]
             raise RuntimeError(f"API request failed: {error_message}")
-        if not json_response["finished"]:
-            tracking_upload_progress(
-                execution_id,
-                taxonomy,
-                categories,
-                date_created,
-            )
-        if json_response["status"] == "finished":
-            dataset = json_response.get("output_params").get("resources")[0]
-            if dataset.get("id"):
+
+        if status == "finished":
+            resources = request_info.get(
+                "output_params", {}
+            ).get("resources") or []
+            if resources and resources[0].get("id"):
                 update_dataset_metadata(
-                    dataset["id"],
+                    resources[0]["id"],
                     {
                         "advertised": False,
                         "is_published": False,
-                        "category": categories.get(taxonomy),
+                        "category": (categories or {}).get(taxonomy),
                         "date": date_created,
                     },
                 )
-    else:
-        write_failure_message(response)
-        return None
+            return
+
+        time.sleep(interval)
+
+    raise TimeoutError(
+        f"Upload {execution_id} did not finish within {timeout}s"
+    )
 
 
 def process_batch(batch, categories):
@@ -204,7 +238,9 @@ def process_batch(batch, categories):
 
 def main():
     BATCH_SIZE = 5
-    BATCH_DELAY_SECONDS = 60
+    # Uploads are now serialized by tracking_upload_progress polling for each
+    # import to finish, so the long blind sleep is no longer needed.
+    BATCH_DELAY_SECONDS = 5
 
     categories = get_categories(f"{geonode_url}/api/categories/")
     # Get limit from env var (default: None = upload all)
