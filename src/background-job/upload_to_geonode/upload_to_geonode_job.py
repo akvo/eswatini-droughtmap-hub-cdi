@@ -18,11 +18,39 @@ VERIFY = True
 POLL_INTERVAL_SECONDS = 5
 POLL_TIMEOUT_SECONDS = 600
 
+# (connect, read) timeouts for every HTTP call. requests blocks FOREVER by
+# default, so a server that accepts the connection and then stops answering -
+# or one that drops packets outright - hangs the job indefinitely. That also
+# defeats POLL_TIMEOUT_SECONDS, which is only checked between requests, and
+# the circuit breaker below, which needs an exception to count a failure.
+# Without these the job goes quiet during an outage instead of aborting.
+REQUEST_TIMEOUT = (10, 60)
+# The upload POST streams a raster and waits for GeoNode to accept it, so it
+# needs a longer read budget than a status poll.
+UPLOAD_TIMEOUT = (10, 300)
+
+# Files that failed to upload are recorded here so the next run retries them
+# before anything else. Every run re-uploads all rasters anyway (percent ranks
+# shift whenever a new month arrives), so this only controls ordering and
+# gives operators a record of what broke.
+FAILURE_LOG_PATH = "../../logs/upload_failures.json"
+
+# Abort the run after this many uploads fail back-to-back. A GeoServer outage
+# fails every remaining file identically, so there is no point churning
+# through hundreds of them.
+MAX_CONSECUTIVE_FAILURES = 5
+
+
+class UploadCircuitBreaker(Exception):
+    """Raised when too many uploads fail consecutively."""
+
 
 def get_categories(api_url, file_name="geonode_category.json"):
     try:
         # Fetch data from the API
-        response = requests.get(api_url, verify=VERIFY)
+        response = requests.get(
+            api_url, verify=VERIFY, timeout=REQUEST_TIMEOUT
+        )
         # Will raise an error for 4xx or 5xx status codes
         response.raise_for_status()
 
@@ -86,6 +114,7 @@ def upload_to_geonode(base_file_path, xml_file_path=None, sld_file_path=None):
             files=files,
             data=data,
             verify=VERIFY,
+            timeout=UPLOAD_TIMEOUT,
         )
     if response.status_code == 201:
         json_response = response.json()
@@ -142,7 +171,8 @@ def update_dataset_metadata(dataset_id, metadata):
         api_url,
         auth=(username, password),
         json=metadata,
-        verify=VERIFY
+        verify=VERIFY,
+        timeout=REQUEST_TIMEOUT
     )
     if response.status_code == 200:
         print("Dataset successfully uploaded!")
@@ -178,7 +208,8 @@ def tracking_upload_progress(
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         response = requests.get(
-            api_url, auth=(username, password), verify=VERIFY
+            api_url, auth=(username, password), verify=VERIFY,
+            timeout=REQUEST_TIMEOUT
         )
         if response.status_code != 200:
             write_failure_message(response)
@@ -214,8 +245,55 @@ def tracking_upload_progress(
     )
 
 
-def process_batch(batch, categories):
-    """Process a batch of dataset files."""
+def load_failed_uploads(path: str = FAILURE_LOG_PATH) -> set:
+    """Read the set of files that failed during a previous run."""
+    if not os.path.exists(path):
+        return set()
+    try:
+        with open(path, 'r') as log_file:
+            return set(json.load(log_file))
+    except (OSError, ValueError) as e:
+        print(f"Could not read failure log {path}: {e}")
+        return set()
+
+
+def save_failed_uploads(failed: set, path: str = FAILURE_LOG_PATH) -> None:
+    """Persist the set of files that still need re-uploading."""
+    try:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        with open(path, 'w') as log_file:
+            json.dump(sorted(failed), log_file, indent=2)
+    except OSError as e:
+        print(f"Could not write failure log {path}: {e}")
+
+
+def order_retries_first(dataset_files: list, failed: set) -> list:
+    """Move previously failed files to the front of the upload order."""
+    retries = [f for f in dataset_files if f in failed]
+    remaining = [f for f in dataset_files if f not in failed]
+    return retries + remaining
+
+
+def process_batch(batch, categories, failed=None, consecutive_failures=0):
+    """Upload a batch of dataset files.
+
+    Args:
+        batch: Dataset file paths to upload.
+        categories: Mapping of taxonomy key to GeoNode category id.
+        failed: Mutable set tracking files that still need re-uploading.
+        consecutive_failures: Failure streak carried in from earlier batches.
+
+    Returns:
+        The trailing consecutive-failure count after this batch.
+
+    Raises:
+        UploadCircuitBreaker: After MAX_CONSECUTIVE_FAILURES failures in a row.
+    """
+    if failed is None:
+        failed = set()
+
     for dataset_file in batch:
         try:
             basename = os.path.basename(dataset_file)
@@ -231,37 +309,77 @@ def process_batch(batch, categories):
                 categories=categories,
                 date_created=date_created
             )
+            failed.discard(dataset_file)
+            consecutive_failures = 0
         except Exception as e:
             print(f"Error uploading {dataset_file}: {e}")
-            continue
+            failed.add(dataset_file)
+            consecutive_failures += 1
+            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                raise UploadCircuitBreaker(
+                    f"{consecutive_failures} uploads failed in a row - "
+                    "GeoNode or GeoServer is likely down"
+                )
+
+    return consecutive_failures
+
+
+def run_upload(dataset_files, categories, batch_size=5, batch_delay=5):
+    """Upload files in batches, tracking failures and tripping the breaker.
+
+    Returns:
+        True when every file uploaded, False when the run was aborted early.
+    """
+    failed = load_failed_uploads()
+    if failed:
+        print(f"Retrying {len(failed)} previously failed upload(s) first.")
+        dataset_files = order_retries_first(dataset_files, failed)
+
+    total_files = len(dataset_files)
+    total_batches = (total_files + batch_size - 1) // batch_size
+    consecutive_failures = 0
+    aborted = False
+
+    try:
+        for i in range(0, total_files, batch_size):
+            batch_num = (i // batch_size) + 1
+            batch = dataset_files[i:i + batch_size]
+
+            print(
+                f"\n=== Processing batch {batch_num}/{total_batches} "
+                f"({len(batch)} files) ==="
+            )
+            consecutive_failures = process_batch(
+                batch, categories, failed, consecutive_failures
+            )
+
+            # Add delay between batches (but not after the last batch)
+            if i + batch_size < total_files:
+                print(f"\nWaiting {batch_delay} seconds before next batch...")
+                time.sleep(batch_delay)
+    except UploadCircuitBreaker as e:
+        print(f"\n=== Aborting run: {e} ===")
+        aborted = True
+    finally:
+        save_failed_uploads(failed)
+
+    if failed:
+        print(
+            f"\n{len(failed)} file(s) recorded in {FAILURE_LOG_PATH}; "
+            "the next run retries them first."
+        )
+    return not aborted
 
 
 def main():
-    BATCH_SIZE = 5
-    # Uploads are now serialized by tracking_upload_progress polling for each
-    # import to finish, so the long blind sleep is no longer needed.
-    BATCH_DELAY_SECONDS = 5
-
     categories = get_categories(f"{geonode_url}/api/categories/")
     # Get limit from env var (default: None = upload all)
     limit_str = os.getenv("UPLOAD_RECENT_LIMIT")
     limit = int(limit_str) if limit_str else None
     dataset_files = get_recent_files(limit=limit)
 
-    total_files = len(dataset_files)
-    total_batches = (total_files + BATCH_SIZE - 1) // BATCH_SIZE
-
-    for i in range(0, total_files, BATCH_SIZE):
-        batch_num = (i // BATCH_SIZE) + 1
-        batch = dataset_files[i:i + BATCH_SIZE]
-
-        print(f"\n=== Processing batch {batch_num}/{total_batches} ({len(batch)} files) ===")
-        process_batch(batch, categories)
-
-        # Add delay between batches (but not after the last batch)
-        if i + BATCH_SIZE < total_files:
-            print(f"\nWaiting {BATCH_DELAY_SECONDS} seconds before next batch...")
-            time.sleep(BATCH_DELAY_SECONDS)
+    if not run_upload(dataset_files, categories):
+        raise SystemExit(1)
 
     print("\n=== All batches completed ===")
 
