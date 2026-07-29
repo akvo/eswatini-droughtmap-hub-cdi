@@ -28,7 +28,6 @@ class CompositeDroughtIndicator:
         self.__datasets = {}
         self.__common_times = []
         self.__times = {}
-        self.__last_time_index = 0
         self.__latitudes = self.__config.get('latitudes')
         self.__longitudes = self.__config.get('longitudes')
         self.__missing = -9999.0
@@ -81,25 +80,44 @@ class CompositeDroughtIndicator:
         except Exception:
             raise
 
-    def __get_time_range(self, source):
+    def close(self):
         """
-        This function gets the indices from an input time dimension where the NetCDF dates match the common dates between all inputs
+        Release the input NetCDF handles.
+
+        The process used to exit immediately after this step, so leaking them
+        was invisible. HDF5 keeps a lock on an open file, so a second run in
+        the same process cannot recreate the STEP_0100 outputs until these are
+        closed - which is exactly what the integration tests do.
+        """
+        for data_set in self.__datasets.values():
+            data_set.close()
+        self.__datasets = {}
+
+    def __get_time_indices(self, source):
+        """
+        Map every common date to its index in this source's own time axis.
+
+        The common dates are NOT contiguous. NDMC publishes no EVI2 for January,
+        July or August, so those months drop out of the intersection while
+        ESI/SPI/SM still carry them. The previous implementation returned a
+        contiguous range(start, end) and indexed it positionally, which walked
+        the gap-free inputs past the gaps and blended progressively earlier
+        months into each raster - by the end of the series it was reading
+        2025-09 ESI/SPI/SM into the CDI labelled 2026-05.
+
+        Looking each date up by value keeps every input on the same month.
+
         Args:
             source (str): the name of the input parameter
 
         Returns:
-            list of indices matching the common dates to use
+            list of indices, aligned element-wise with self.__common_times
         """
         try:
-            start_idx = 0
-            end_idx = 0
-            date_list = self.__times[source]
-            for d, date in enumerate(date_list):
-                if date == self.__common_times[0]:
-                    start_idx = d
-                elif date == self.__common_times[self.__last_time_index]:
-                    end_idx = d + 1
-            return range(start_idx, end_idx)
+            lookup = {t: i for i, t in enumerate(self.__times[source])}
+            return [lookup[t] for t in self.__common_times]
+        except KeyError:
+            raise
         except ValueError:
             raise
         except Exception:
@@ -121,7 +139,6 @@ class CompositeDroughtIndicator:
             intersections = set.intersection(*sets)
             date_list = list(intersections)
             self.__common_times = sorted(date_list)
-            self.__last_time_index = len(self.__common_times) - 1
         except IOError:
             raise
         except Exception:
@@ -153,10 +170,10 @@ class CompositeDroughtIndicator:
             cdi_sum.standard_name = "cdi_weighted_sum"
             cdi_sum.long_name = "Weighted Composite Drought Indicator"
 
-            # determine the data ranges for each parameter #
+            # resolve each common date to a per-parameter time index #
             data_ranges = {}
             for param in self.__cdi_inputs:
-                data_ranges[param] = self.__get_time_range(param)
+                data_ranges[param] = self.__get_time_indices(param)
 
             # load the data from each source using the common dates #
             print("Processing CDI values...")
@@ -200,10 +217,13 @@ def main():
     """
     # initialize a new soil moisture class #
     cdi = CompositeDroughtIndicator()
-    # get the common dates between the sets #
-    cdi.get_common_dates()
-    # compute the weighted sum #
-    cdi.compute_sum()
+    try:
+        # get the common dates between the sets #
+        cdi.get_common_dates()
+        # compute the weighted sum #
+        cdi.compute_sum()
+    finally:
+        cdi.close()
 
 
 if __name__ == '__main__':

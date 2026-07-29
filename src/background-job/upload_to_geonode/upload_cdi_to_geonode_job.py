@@ -1,8 +1,6 @@
 import os
-import time
 from upload_to_geonode_job import get_categories
-from upload_to_geonode_job import tracking_upload_progress
-from upload_to_geonode_job import upload_to_geonode
+from upload_to_geonode_job import run_upload
 
 geonode_url = os.getenv("GEONODE_URL")
 username = os.getenv("GEONODE_USERNAME")
@@ -27,33 +25,7 @@ def get_dataset_between(start, end):
     return dataset_files
 
 
-def process_batch(batch, categories):
-    """Process a batch of dataset files."""
-    for dataset_file in batch:
-        try:
-            basename = os.path.basename(dataset_file)
-            date_part = basename.split('_')[-1].replace('.tif', '')
-            # convert date part to datetime object: 202201 -> 2022-01-01
-            date_created = f"{date_part[:4]}-{date_part[4:6]}-01"
-
-            print(f"Uploading {date_created} to GeoNode...")
-            execution_id = upload_to_geonode(dataset_file)
-            taxonomy = dataset_file.split('/')[-2]
-            tracking_upload_progress(
-                execution_id=execution_id,
-                taxonomy=taxonomy.lower(),
-                categories=categories,
-                date_created=date_created
-            )
-        except Exception as e:
-            print(f"Error uploading {dataset_file}: {e}")
-            continue
-
-
 def main():
-    BATCH_SIZE = 5
-    BATCH_DELAY_SECONDS = 60
-
     # Get all CDI files without date range restriction
     dataset_files = []
     if not os.path.exists(dataset_path):
@@ -66,24 +38,11 @@ def main():
 
     try:
         categories = get_categories(f"{geonode_url}/api/categories/")
-
-        total_files = len(dataset_files)
-        total_batches = (total_files + BATCH_SIZE - 1) // BATCH_SIZE
-
-        for i in range(0, total_files, BATCH_SIZE):
-            batch_num = (i // BATCH_SIZE) + 1
-            batch = dataset_files[i:i + BATCH_SIZE]
-
-            print(f"\n=== Processing batch {batch_num}/{total_batches} ({len(batch)} files) ===")
-            process_batch(batch, categories)
-
-            # Add delay between batches (but not after the last batch)
-            if i + BATCH_SIZE < total_files:
-                print(f"\nWaiting {BATCH_DELAY_SECONDS} seconds before next batch...")
-                time.sleep(BATCH_DELAY_SECONDS)
-
+        if not run_upload(dataset_files, categories):
+            raise SystemExit(1)
         print("\n=== All batches completed ===")
-
+    except SystemExit:
+        raise
     except Exception as e:
         print(e)
 

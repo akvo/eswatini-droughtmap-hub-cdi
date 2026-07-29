@@ -189,3 +189,7 @@ wget-log.*
 geonode_category.json
 # Added by code-review-graph
 .code-review-graph/
+
+# Partner correspondence held outside the repo (contains personal email
+# addresses and phone numbers). Quote passages inline in docs/ instead.
+docs/*.html
