@@ -68,11 +68,18 @@ class NetCDFtoTIFF:
             "evi2": os.path.join(self.__output_dir, "STEP_0100_EVI2_pct_rank_{}.nc".format(self.__region)),
             "spi": os.path.join(self.__output_dir, "STEP_0100_SPI_pct_rank_{}.nc".format(self.__region)),
             "sm": os.path.join(self.__output_dir, "STEP_0100_SM_pct_rank_{}.nc".format(self.__region)),
-            "cdi": os.path.join(self.__output_dir, "STEP_0302_CDI_pct_rank_{}.nc".format(self.__region))
+            # The CDI is the STEP_0301 weighted sum, exported directly.
+            # The NDMC inputs are already percentile-ranked against a
+            # 40-year climatology, so the old STEP_0302 cross-year
+            # re-ranking was redundant AND destructive: it collapsed a
+            # continuous 0-1 percentile into a rank out of however many
+            # years happened to be staged (as few as 2) - which is what
+            # published 2026-05 as D4 nationwide.
+            "cdi": os.path.join(self.__output_dir, "STEP_0301_CDI_weighted_sum_{}.nc".format(self.__region))
         }
         # define the NetCDF parameter names for each source #
         input_parameters = self.__config.get('cdi_parameters', 'names')
-        input_parameters['cdi'] = "cdi_wt_sum_pr"
+        input_parameters['cdi'] = "cdi_weighted_sum"
         # extract the time(s) and data #
         try:
             source = input_files[self.__parameter]

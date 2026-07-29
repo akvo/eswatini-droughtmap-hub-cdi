@@ -33,8 +33,6 @@ NDMC_SCALE = 100.0
 NDMC_NODATA = -1.0
 # Internal missing value used across the CDI pipeline.
 MISSING = -9999.0
-# Number of trailing months to ingest in "recent" mode.
-RECENT_MONTHS = 24
 # Origin for the NetCDF "days since" time axis (matches the rest of the pipeline).
 ORIGIN_DATE = date(1900, 1, 1)
 
@@ -51,9 +49,8 @@ DATASETS = {
 class NDMCIngestor:
     """Ingests one NDMC dataset directory into a ranked NetCDF file."""
 
-    def __init__(self, dataset_key, mode):
+    def __init__(self, dataset_key):
         self.__key = dataset_key
-        self.__mode = mode
         self.__meta = DATASETS[dataset_key]
         self.__config = ConfigParser()
         self.__region = self.__config.get("region_name")
@@ -76,7 +73,10 @@ class NDMCIngestor:
     def get_tif_files(self):
         """Return a list of (calendar_time, year, month, path) sorted by date.
 
-        Honours the mode: "recent" keeps only the most recent RECENT_MONTHS entries.
+        Every staged file is ingested, always. This deliberately ignores --mode:
+        ranking and the CDI blend are climatological operations, and scoping them
+        by the export window is what produced a CDI ranked against 2 samples.
+        --mode controls what gets downloaded and exported, never the analysis basis.
         """
         records = []
         if not os.path.isdir(self.__raw_dir):
@@ -90,8 +90,6 @@ class NDMCIngestor:
             records.append((self.__calendar_value(year, month), year, month,
                             os.path.join(self.__raw_dir, name)))
         records.sort(key=lambda r: r[0])
-        if self.__mode != "all" and len(records) > RECENT_MONTHS:
-            records = records[-RECENT_MONTHS:]
         return records
 
     def clip_and_scale(self, tif_path):
@@ -161,16 +159,20 @@ class NDMCIngestor:
                 output_data_set.close()
 
 
-def main(args):
-    """Entry point: ingest every CDI input dataset for the requested mode."""
-    mode = str(args.mode)
-    print("Ingesting NDMC GeoTIFFs (mode={})".format(mode))
+def main(args=None):
+    """Entry point: ingest every staged CDI input dataset.
+
+    `args` is accepted (and ignored) so STEP_0000 can call this uniformly with
+    the other steps. Ingestion is never scoped by --mode; see get_tif_files.
+    """
+    print("Ingesting NDMC GeoTIFFs (full staged history)")
     for dataset_key in DATASETS:
-        NDMCIngestor(dataset_key, mode).run()
+        NDMCIngestor(dataset_key).run()
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-m", "--mode", default="recent",
-                        help="Processing mode: 'recent' (last 24 months) or 'all'. Default is recent")
+    parser = ArgumentParser(
+        description="Ingest every staged NDMC GeoTIFF into ranked NetCDF "
+                    "files. Takes no options: the analysis basis is always "
+                    "the full staged history.")
     main(parser.parse_args())
