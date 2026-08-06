@@ -68,11 +68,13 @@ flowchart TD
     utils["utils.sh\ncheck_and_create_download_log_ndmc\ndownload_missing_files"]
     j03["job_03_run_cdi.sh\nactivate ~/.myenv\nSTEP_0000 --mode=MODE"]
     j04["job_04_upload_to_geonode.sh\nupload_to_geonode_job.py"]
+    j05["job_05_sync_to_portal.sh\nsync_geonode_publications_job.py"]
 
     job -->|MODE| j01
     j01 --> utils
     utils -->|files in input_data/| j03
     j03 -->|GeoTiffs in output_data/GeoTiffs/| j04
+    j04 -->|GeoNode raster metadata| j05
 ```
 
 `MODE`: `recent` (last 2 years, default) or `all` (full history; SPI starts 2023).
@@ -114,6 +116,9 @@ Configuration is driven by three JSON conf files (relative to `cdi-scripts/`):
 Two upload scripts:
 - `upload_to_geonode_job.py` — uploads all GeoTiff categories (CDI, SPI, ESI, EVI2, SM) in batches of 5 with 60s inter-batch delay; respects `UPLOAD_RECENT_LIMIT` env var. Categories: `cdi/spi/esi/evi2/sm-raster-map`.
 - `upload_cdi_to_geonode_job.py` — CDI-only upload with optional date-range filtering
+
+Plus one sync script:
+- `sync_geonode_publications_job.py` — after uploading, reads each raster category back from GeoNode (`GET /api/v2/resources?filter{category.identifier}=…&filter{subtype}=raster`) and pushes the metadata to the drought monitoring portal (`POST ${DROUGHTMAP_HUB_URL}/api/v1/geonode/publications`, header `X-API-Key: ${DROUGHTMAP_HUB_API_KEY}`, upserted by `geonode_id`). Skips silently when either env var is unset.
 
 Upload flow:
 
