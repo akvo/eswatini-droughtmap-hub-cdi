@@ -17,6 +17,7 @@ source ./utils.sh
 source ./job_01_check-dataset.sh
 source ./job_03_run_cdi.sh
 source ./job_04_upload_to_geonode.sh
+source ./job_05_sync_to_portal.sh
 
 echo "Running pipeline in MODE=${MODE}"
 
@@ -97,3 +98,4 @@ cleanup_output_data
 
 run_cdi_scripts "$MODE"
 upload_to_geonode
+sync_geonode_to_portal
