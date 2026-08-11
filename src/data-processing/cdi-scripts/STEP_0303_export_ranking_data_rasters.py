@@ -3,6 +3,7 @@ import os
 from libs.config_reader import ConfigParser
 from libs.file_operations import FileHandler
 import libs.netcdf_functions as netcdf
+from STEP_0302_rank_cdi_pooled import ranking_mode
 from argparse import ArgumentParser
 import rasterio
 from rasterio.transform import Affine
@@ -68,18 +69,26 @@ class NetCDFtoTIFF:
             "evi2": os.path.join(self.__output_dir, "STEP_0100_EVI2_pct_rank_{}.nc".format(self.__region)),
             "spi": os.path.join(self.__output_dir, "STEP_0100_SPI_pct_rank_{}.nc".format(self.__region)),
             "sm": os.path.join(self.__output_dir, "STEP_0100_SM_pct_rank_{}.nc".format(self.__region)),
-            # The CDI is the STEP_0301 weighted sum, exported directly.
-            # The NDMC inputs are already percentile-ranked against a
-            # 40-year climatology, so the old STEP_0302 cross-year
-            # re-ranking was redundant AND destructive: it collapsed a
-            # continuous 0-1 percentile into a rank out of however many
-            # years happened to be staged (as few as 2) - which is what
-            # published 2026-05 as D4 nationwide.
-            "cdi": os.path.join(self.__output_dir, "STEP_0301_CDI_weighted_sum_{}.nc".format(self.__region))
         }
+        # Where the CDI comes from depends on cdi_ranking (see STEP_0302):
+        #   none   - the STEP_0301 weighted sum, exported as-is
+        #   pooled - that sum percent-ranked against the full record, which is
+        #            what makes the hub's USDM thresholds meaningful
+        # Either way this is NOT the deleted per-calendar-month ranking, which
+        # ranked against 2-4 samples and published 2026-05 as D4 nationwide.
+        if ranking_mode(self.__config) == 'pooled':
+            input_files['cdi'] = os.path.join(
+                self.__output_dir,
+                "STEP_0302_CDI_pooled_rank_{}.nc".format(self.__region))
+            cdi_variable = "cdi_pooled_rank"
+        else:
+            input_files['cdi'] = os.path.join(
+                self.__output_dir,
+                "STEP_0301_CDI_weighted_sum_{}.nc".format(self.__region))
+            cdi_variable = "cdi_weighted_sum"
         # define the NetCDF parameter names for each source #
         input_parameters = self.__config.get('cdi_parameters', 'names')
-        input_parameters['cdi'] = "cdi_weighted_sum"
+        input_parameters['cdi'] = cdi_variable
         # extract the time(s) and data #
         try:
             source = input_files[self.__parameter]

@@ -5,6 +5,7 @@ import sys
 # from netCDF4 import Dataset
 from STEP_0100_ingest_ndmc_geotiffs import main as step_0100
 from STEP_0301_CDI_weighted_sum import main as step_0301
+from STEP_0302_rank_cdi_pooled import main as step_0302
 from STEP_0303_export_ranking_data_rasters import main as step_0303
 from argparse import ArgumentParser
 
@@ -39,15 +40,15 @@ def main(args):
     # STEP_0100 ingests the pre-ranked NDMC GeoTIFFs into ranked NetCDF files,
     # replacing the old STEP_0101/0102/0103 + STEP_0201/0202/0203 chain.
     #
-    # There is deliberately no STEP_0302 here. It percent-ranked the STEP_0301
-    # weighted sum across years, which made sense when the inputs were raw
-    # anomalies. The NDMC inputs are already percentiles on a 40-year
-    # climatology, so re-ranking them against the handful of years we happen to
-    # have staged destroyed the scale - it published 2026-05 as D4 nationwide
-    # off a sample of 2. STEP_0303 now exports the STEP_0301 sum directly.
-    # See docs/cdi-ranking-scale-fix.md.
+    # STEP_0302 is a no-op unless cdi_ranking is "pooled". It is NOT the step
+    # that was deleted: that one ranked each calendar month against the same
+    # month in other years - 2-4 samples, which published 2026-05 as D4
+    # nationwide. This one ranks the blend against the whole record, which is
+    # what makes the hub's USDM thresholds meaningful. See its docstring and
+    # docs/cdi-ranking-scale-fix.md.
     log_time("Step 0100", step_0100, args)
     log_time("Step 0301", step_0301)
+    log_time("Step 0302", step_0302)
     log_time("Step 0303", step_0303, args)
     print("Finished processing CDI data")
 

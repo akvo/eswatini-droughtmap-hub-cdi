@@ -28,8 +28,11 @@ if CDI_SCRIPTS not in sys.path:
     sys.path.insert(0, CDI_SCRIPTS)
 
 from libs.config_reader import ConfigParser  # noqa: E402
+import STEP_0302_rank_cdi_pooled as step_0302_module  # noqa: E402
+import STEP_0303_export_ranking_data_rasters as step_0303_module  # noqa: E402
 from STEP_0100_ingest_ndmc_geotiffs import main as step_0100  # noqa: E402
 from STEP_0301_CDI_weighted_sum import main as step_0301  # noqa: E402
+from STEP_0302_rank_cdi_pooled import main as step_0302  # noqa: E402
 from STEP_0303_export_ranking_data_rasters import main as step_0303  # noqa: E402
 
 # Directory name -> NDMC filename prefix, matching the production layout.
@@ -84,6 +87,15 @@ def project(tmp_path, monkeypatch):
         (tmp_path / "output_data" / "GeoTiffs" / name).mkdir(parents=True)
     monkeypatch.chdir(work)
 
+    # cdi_ranking lives in the repo's own .conf, which ConfigParser reads from a
+    # fixed path - so without this the whole suite silently changes meaning the
+    # moment someone flips the flag. Tests declare the mode they are testing.
+    state = {"ranking": "none"}
+    for module in (step_0302_module, step_0303_module):
+        monkeypatch.setattr(
+            module, "ranking_mode", lambda _config: state["ranking"]
+        )
+
     config = ConfigParser()
     latitudes = config.get("latitudes")
     longitudes = config.get("longitudes")
@@ -131,9 +143,15 @@ def project(tmp_path, monkeypatch):
                     Project.write_tif(dataset, year, month, value)
 
         @staticmethod
+        def set_ranking(ranking):
+            """Choose "none" (raw blend) or "pooled" for this test."""
+            state["ranking"] = ranking
+
+        @staticmethod
         def run(mode="all"):
             step_0100(Args(mode))
             step_0301()
+            step_0302()
             step_0303(Args(mode))
 
         @staticmethod
@@ -287,3 +305,77 @@ def test_missing_data_propagates_to_the_export(project):
     assert cdi[hole] == pytest.approx(MISSING), (
         "nodata became {} instead of {}".format(cdi[hole], MISSING))
     assert cdi[0, 0] > 0.0, "the rest of the raster should be unaffected"
+
+
+def test_pooled_rank_is_uniform_and_preserves_missing():
+    """The pooled rank must restore a uniform scale, which is the whole point.
+
+    A weighted mean of percentiles clusters toward the middle, so the hub's USDM
+    thresholds (D4 <=0.02 ... D0 <=0.30) almost never fire on the raw blend.
+    Ranking the blend against its own record makes them mean what they were
+    designed to mean.
+    """
+    from STEP_0302_rank_cdi_pooled import pooled_percent_rank
+
+    # One pixel counting up, one counting down, one constant, one all-missing.
+    cube = np.empty((10, 2, 2))
+    cube[:, 0, 0] = np.arange(10)
+    cube[:, 0, 1] = np.arange(10)[::-1]
+    cube[:, 1, 0] = 0.5
+    cube[:, 1, 1] = -9999.0
+    ranked = pooled_percent_rank(cube)
+
+    # Strictly increasing input -> evenly spaced ranks, symmetric about 0.5.
+    assert np.allclose(ranked[:, 0, 0], (np.arange(10) + 0.5) / 10)
+    # Reversed input -> mirrored ranks.
+    assert np.allclose(ranked[:, 0, 1], ranked[::-1, 0, 0])
+    # A fully tied pixel sits at the midpoint rather than at an extreme.
+    assert np.allclose(ranked[:, 1, 0], 0.5)
+    # Missing stays missing rather than becoming a rank of 0.0.
+    assert np.all(ranked[:, 1, 1] == -9999.0)
+
+    # Uniformity: every decile bucket gets exactly one of the ten values.
+    counts, _ = np.histogram(ranked[:, 0, 0], bins=10, range=(0, 1))
+    assert set(counts) == {1}
+
+
+def test_pooled_mode_exports_a_uniform_scale_end_to_end(project):
+    """With cdi_ranking="pooled" the exported CDI spans the full 0-1 range.
+
+    The raw blend concentrates toward the middle, so the hub's USDM thresholds
+    (D4 <=0.02 ... D0 <=0.30) almost never fire on it. This asserts the flag
+    actually changes what STEP_0303 writes, and that the result reaches the
+    extremes the thresholds are defined against.
+    """
+    period = months(2020, 1, 36)
+
+    # A national wet/dry swing: the blend alone would keep every month inside
+    # roughly 0.3-0.7, well clear of any drought band.
+    def value_for(dataset, year, month):
+        index = (year - 2020) * 12 + month
+        return 35.0 + 30.0 * (index % 12) / 11.0
+
+    project.stage(period, value_for)
+
+    project.set_ranking("none")
+    project.run()
+    blend = np.concatenate([
+        project.read_cdi(y, m)[project.read_cdi(y, m) > -999].ravel()
+        for y, m in project.exported_months()
+    ])
+
+    project.set_ranking("pooled")
+    project.run()
+    pooled = np.concatenate([
+        project.read_cdi(y, m)[project.read_cdi(y, m) > -999].ravel()
+        for y, m in project.exported_months()
+    ])
+
+    assert blend.min() > 0.30, (
+        "fixture is wrong: the raw blend should stay out of every drought band")
+    assert pooled.min() <= 0.10, (
+        "pooled rank never reaches D2 - the thresholds are still unreachable")
+    assert pooled.max() > 0.90, "pooled rank never reaches the wet extreme"
+    # A rank is uniform by construction, so it must spread far wider than the
+    # mean it was computed from.
+    assert pooled.std() > blend.std() * 1.5
